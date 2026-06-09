@@ -47,7 +47,6 @@
       position: relative;
     }
 
-    /* Login */
     .login-screen {
       display: flex;
       flex-direction: column;
@@ -78,7 +77,6 @@
     .btn-outline { background: white; color: var(--pink); border: 2px solid #f8bbd0; }
     .btn-outline:active { background: var(--pink-light); }
 
-    /* Chat */
     .chat-screen { display: flex; flex-direction: column; height: 100%; }
     
     .chat-header {
@@ -125,7 +123,7 @@
     }
     .msg .time { font-size: 0.6rem; opacity: 0.7; margin-top: 4px; text-align: right; }
     .msg img { max-width: 200px; border-radius: 10px; cursor: pointer; display: block; }
-    .msg audio { height: 30px; margin-top: 4px; }
+    .msg audio { height: 30px; margin-top: 4px; width: 100%; min-width: 150px; }
     .sys-msg {
       align-self: center; font-size: 0.7rem; color: #666;
       background: #eee; padding: 4px 12px; border-radius: 10px; font-style: italic;
@@ -150,7 +148,6 @@
     .btn-mic.recording { background: var(--red); color: white; animation: pulse 0.6s infinite; }
     @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
 
-    /* Call Overlay */
     .call-overlay {
       position: absolute; inset: 0; background: #1a1a2e;
       display: flex; flex-direction: column; align-items: center;
@@ -184,10 +181,9 @@
     .call-buttons .btn-end { background: var(--red); width: 65px; height: 65px; }
     .call-buttons button:active { transform: scale(0.9); }
 
-    /* Incoming Call Notification */
     .incoming-notif {
-      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.85); z-index: 300;
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.9); z-index: 300;
       display: flex; flex-direction: column; align-items: center;
       justify-content: center; gap: 20px;
     }
@@ -196,8 +192,8 @@
     .incoming-notif .caller-info { color: #ccc; font-size: 1rem; }
     .incoming-notif .notif-buttons { display: flex; gap: 20px; }
     .incoming-notif .notif-buttons button {
-      width: 60px; height: 60px; border-radius: 50%; border: none;
-      font-size: 1.5rem; cursor: pointer; color: white;
+      width: 65px; height: 65px; border-radius: 50%; border: none;
+      font-size: 1.8rem; cursor: pointer; color: white;
     }
     .btn-accept { background: var(--green); }
     .btn-reject { background: var(--red); }
@@ -247,7 +243,7 @@
     </div>
   </div>
 
-  <!-- INCOMING CALL NOTIFICATION -->
+  <!-- INCOMING CALL -->
   <div class="incoming-notif hidden" id="incomingNotif">
     <div style="font-size:4rem;">📞</div>
     <div class="caller-name" id="incomingCaller">Pasangan</div>
@@ -286,7 +282,9 @@
   let isCallActive = false, isVideo = false;
   let mediaRecorder = null, audioChunks = [], isRecording = false;
   let channel = null;
-  let pendingSignal = null; // Simpan sinyal panggilan masuk
+  let pendingSignal = null;
+  let lastMsgId = 0;
+  let pollInterval = null;
 
   // ========== DOM ==========
   const $ = id => document.getElementById(id);
@@ -314,26 +312,21 @@
     return new Date().toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit'});
   }
 
-  function addSysMsg(text) {
-    const d = document.createElement('div');
-    d.className = 'sys-msg';
-    d.textContent = text;
-    messagesArea.appendChild(d);
-    scrollDown();
-  }
-
-  function addMsg(type, data, senderId) {
+  function addMsg(type, data, senderId, msgId) {
     if (type === 'call_signal') return;
+    if (msgId && msgId <= lastMsgId) return; // Hindari duplikat
+    if (msgId) lastMsgId = Math.max(lastMsgId, msgId);
+    
     const isMe = senderId === user?.id;
     const d = document.createElement('div');
     d.className = `msg ${isMe ? 'me' : 'you'}`;
 
     if (type === 'text') d.textContent = data.text;
     else if (type === 'image') {
-      d.innerHTML = `<img src="${data.url}" onclick="window.open('${data.url}')">`;
+      d.innerHTML = `<img src="${data.url}" onclick="window.open('${data.url}')" style="max-width:200px;border-radius:10px;cursor:pointer;">`;
     }
     else if (type === 'voice') {
-      d.innerHTML = `<audio controls src="${data.url}"></audio>`;
+      d.innerHTML = `<audio controls src="${data.url}" style="height:30px;width:100%;min-width:150px;"></audio>`;
     }
 
     d.innerHTML += `<div class="time">${now()}</div>`;
@@ -347,7 +340,7 @@
     if (data.session?.user) {
       user = data.session.user;
       showChat();
-      await initRealtime();
+      await startChat();
     }
   }
 
@@ -361,7 +354,7 @@
     if (error) return alert('Gagal: '+error.message);
     user = data.user;
     showChat();
-    await initRealtime();
+    await startChat();
   };
 
   $('signupBtn').onclick = async () => {
@@ -379,8 +372,12 @@
     showLogin();
   };
 
-  // ========== REALTIME ==========
-  async function initRealtime() {
+  // ========== START CHAT ==========
+  async function startChat() {
+    // Load history dulu
+    await loadHistory();
+    
+    // Setup realtime
     if (channel) await supabase.removeChannel(channel);
     
     channel = supabase.channel('room')
@@ -400,15 +397,34 @@
           try { data = JSON.parse(msg.content); } catch(e) { data = {text: msg.content}; }
 
           if (msg.type === 'call_signal') { handleSignal(data, msg.sender_email); return; }
-          addMsg(msg.type, data, msg.user_id);
+          addMsg(msg.type, data, msg.user_id, msg.id);
         }
       )
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
+          console.log('✅ Realtime connected');
           partnerStatus.textContent = '🟢 online';
-          await loadHistory();
+          addSysMsg('💚 Terhubung');
         }
       });
+
+    // Polling sebagai backup (setiap 2 detik)
+    if (pollInterval) clearInterval(pollInterval);
+    pollInterval = setInterval(async () => {
+      const { data } = await supabase.from('messages')
+        .select('*').eq('room_id', ROOM).gt('id', lastMsgId)
+        .order('created_at', {ascending:true}).limit(20);
+      
+      if (data && data.length > 0) {
+        data.forEach(msg => {
+          if (msg.user_id === user?.id) return;
+          let d;
+          try { d = JSON.parse(msg.content); } catch(e) { d = {text: msg.content}; }
+          if (msg.type === 'call_signal') { handleSignal(d, msg.sender_email); return; }
+          addMsg(msg.type, d, msg.user_id, msg.id);
+        });
+      }
+    }, 2000);
   }
 
   async function loadHistory() {
@@ -418,6 +434,7 @@
     
     if (data && data.length > 0) {
       messagesArea.innerHTML = '';
+      lastMsgId = data[data.length - 1]?.id || 0;
       data.forEach(msg => {
         let d;
         try { d = JSON.parse(msg.content); } catch(e) { d = {text: msg.content}; }
@@ -430,15 +447,27 @@
     }
   }
 
+  function addSysMsg(text) {
+    const d = document.createElement('div');
+    d.className = 'sys-msg';
+    d.textContent = text;
+    messagesArea.appendChild(d);
+    scrollDown();
+  }
+
   // ========== SEND MESSAGE ==========
   async function sendMsg(type, content) {
     if (!user) return;
-    const { error } = await supabase.from('messages').insert({
+    const payload = {
       room_id: ROOM, user_id: user.id, sender_email: user.email,
       type, content: JSON.stringify(content), created_at: new Date().toISOString()
-    });
-    if (!error) addMsg(type, content, user.id);
-    else alert('Gagal kirim');
+    };
+    const { data, error } = await supabase.from('messages').insert(payload).select('id').single();
+    if (!error && data) {
+      addMsg(type, content, user.id, data.id);
+    } else {
+      alert('Gagal kirim: ' + (error?.message || ''));
+    }
   }
 
   $('sendBtn').onclick = () => {
@@ -456,9 +485,11 @@
   $('imageInput').onchange = async (e) => {
     const f = e.target.files[0];
     if (!f) return;
+    $('attachBtn').textContent = '⏳';
     const name = `${Date.now()}-${f.name}`;
     const { error } = await supabase.storage.from('chat-media').upload(`images/${name}`, f);
-    if (error) return alert('Upload gagal');
+    $('attachBtn').textContent = '📎';
+    if (error) return alert('Upload gagal: ' + error.message);
     const { data } = supabase.storage.from('chat-media').getPublicUrl(`images/${name}`);
     sendMsg('image', {url: data.publicUrl});
     $('imageInput').value = '';
@@ -505,8 +536,8 @@
 
   // ========== CALL ==========
   function handleSignal(data, senderEmail) {
+    console.log('📞 Signal received:', data);
     if (data.signal === 'incoming_call') {
-      // Tampilkan notifikasi
       pendingSignal = data;
       isVideo = data.video;
       incomingCaller.textContent = senderEmail?.split('@')[0] || 'Pasangan';
@@ -521,16 +552,12 @@
       endCall();
       incomingNotif.classList.add('hidden');
     } else if (data.signal === 'call_accepted') {
-      // Pasangan menerima, mulai koneksi
-      if (data.peerId && peer) {
-        const call = peer.call(data.peerId, localStream);
-        currentCall = call;
-        onCallStream(call);
-      }
+      // Pasangan accept, init panggilan
+      initPeerAndCall(data.peerId);
     }
   }
 
-  // Accept call
+  // Accept
   $('acceptCallBtn').onclick = async () => {
     incomingNotif.classList.add('hidden');
     if (!pendingSignal) return;
@@ -546,23 +573,27 @@
     peer.on('open', () => {
       showCallUI(false);
       sendSignal('call_accepted', {peerId: id});
-      // Call balik
+      // Call ke pemanggil
       const call = peer.call(pendingSignal.peerId, localStream);
       currentCall = call;
-      onCallStream(call);
+      setupCallStream(call);
     });
 
     peer.on('call', (inc) => {
       currentCall = inc;
       inc.answer(localStream);
-      onCallStream(inc);
+      setupCallStream(inc);
     });
 
-    peer.on('error', () => endCall());
+    peer.on('error', (err) => {
+      console.error('Peer error:', err);
+      endCall();
+    });
+
     pendingSignal = null;
   };
 
-  // Reject call
+  // Reject
   $('rejectCallBtn').onclick = () => {
     incomingNotif.classList.add('hidden');
     sendSignal('busy', {});
@@ -588,14 +619,25 @@
     peer.on('call', (inc) => {
       currentCall = inc;
       inc.answer(localStream);
-      onCallStream(inc);
+      setupCallStream(inc);
     });
 
-    peer.on('error', () => endCall());
+    peer.on('error', (err) => {
+      console.error('Peer error:', err);
+      endCall();
+    });
   }
 
-  function onCallStream(call) {
+  function initPeerAndCall(remotePeerId) {
+    if (!localStream) return;
+    const call = peer.call(remotePeerId, localStream);
+    currentCall = call;
+    setupCallStream(call);
+  }
+
+  function setupCallStream(call) {
     call.on('stream', (remoteStream) => {
+      console.log('✅ Stream received');
       if (isVideo) {
         remoteVideo.srcObject = remoteStream;
         remoteVideo.classList.remove('hidden');
@@ -610,7 +652,10 @@
       callStatus.textContent = '💞 Terhubung';
     });
     call.on('close', endCall);
-    call.on('error', endCall);
+    call.on('error', (err) => {
+      console.error('Call error:', err);
+      endCall();
+    });
   }
 
   function showCallUI(isCaller) {
@@ -647,7 +692,7 @@
       type: 'call_signal',
       content: JSON.stringify({signal, ...data}),
       created_at: new Date().toISOString()
-    }).then(({error}) => { if(error) console.error(error); });
+    }).then(({error}) => { if(error) console.error('Signal send error:', error); });
   }
 
   // Call buttons
@@ -666,8 +711,10 @@
     endCall();
     incomingNotif.classList.add('hidden');
     pendingSignal = null;
+    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
     if (channel) { await supabase.removeChannel(channel); channel = null; }
     messagesArea.innerHTML = '';
+    lastMsgId = 0;
     partner = null;
     partnerName.textContent = 'Pasangan';
     partnerStatus.textContent = '⚪ offline';
