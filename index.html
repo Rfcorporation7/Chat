@@ -2,75 +2,84 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, shrink-to-fit=yes">
   <title>💞 Chat & Call Pasangan</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
   <style>
     :root {
-      --pink-50: #fce4ec;
-      --pink-100: #f8bbd0;
-      --pink-200: #f48fb1;
-      --pink-300: #f06292;
       --pink-400: #ec407a;
       --pink-500: #e91e63;
       --pink-600: #d81b60;
       --pink-700: #c2185b;
       --pink-800: #ad1457;
-      --pink-900: #880e4f;
-      --white: #ffffff;
+      --red-500: #f44336;
+      --green-500: #4caf50;
       --gray-50: #fafafa;
       --gray-100: #f5f5f5;
       --gray-200: #eeeeee;
-      --gray-300: #e0e0e0;
-      --gray-500: #9e9e9e;
       --gray-700: #616161;
       --gray-900: #212121;
-      --red-500: #f44336;
-      --green-500: #4caf50;
     }
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      position: fixed;
+      inset: 0;
     }
     body {
       background: linear-gradient(145deg, #fce4ec 0%, #f8bbd0 50%, #f48fb1 100%);
-      min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 12px;
     }
     .app {
       width: 100%;
-      max-width: 480px;
-      height: 92vh;
-      max-height: 850px;
+      max-width: 500px;
+      height: 100vh;
+      height: 100dvh;
       background: rgba(255,255,255,0.92);
       backdrop-filter: blur(25px);
-      border-radius: 32px;
-      box-shadow: 0 30px 60px rgba(0,0,0,0.15);
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      border: 1px solid rgba(255,255,255,0.6);
       position: relative;
+      box-shadow: 0 0 60px rgba(0,0,0,0.1);
     }
+    @media (min-width: 501px) {
+      .app {
+        height: 92vh;
+        height: 92dvh;
+        max-height: 850px;
+        border-radius: 32px;
+        border: 1px solid rgba(255,255,255,0.6);
+      }
+    }
+    /* Header */
     .header {
       background: linear-gradient(135deg, var(--pink-400), var(--pink-600));
       color: white;
-      padding: 14px 18px;
+      padding: 12px 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       flex-shrink: 0;
+      min-height: 56px;
     }
     .header-left {
       display: flex;
       align-items: center;
       gap: 10px;
+      flex: 1;
+      min-width: 0;
     }
     .avatar {
       width: 40px;
@@ -80,14 +89,20 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.2rem;
+      font-size: 1.3rem;
       color: var(--pink-500);
       font-weight: bold;
+      flex-shrink: 0;
+    }
+    .header-info {
+      min-width: 0;
     }
     .header-info h3 {
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       font-weight: 600;
-      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .header-info span {
       font-size: 0.7rem;
@@ -95,291 +110,276 @@
     }
     .header-actions {
       display: flex;
-      gap: 8px;
+      gap: 6px;
+      flex-shrink: 0;
     }
     .icon-btn {
-      width: 38px;
-      height: 38px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
       border: none;
       background: rgba(255,255,255,0.25);
       color: white;
-      font-size: 1.1rem;
+      font-size: 1rem;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: 0.2s;
+      transition: 0.15s;
+      flex-shrink: 0;
     }
     .icon-btn:active {
-      background: rgba(255,255,255,0.4);
-      transform: scale(0.92);
+      background: rgba(255,255,255,0.45);
+      transform: scale(0.93);
     }
+    /* Content */
     .content {
       flex: 1;
-      overflow-y: auto;
       display: flex;
       flex-direction: column;
       background: var(--gray-50);
+      overflow: hidden;
+      position: relative;
     }
     .messages {
       flex: 1;
       overflow-y: auto;
-      padding: 14px;
+      padding: 12px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
+      -webkit-overflow-scrolling: touch;
     }
     .msg {
-      max-width: 80%;
+      max-width: 82%;
       padding: 10px 14px;
-      border-radius: 20px;
+      border-radius: 18px;
       font-size: 0.9rem;
       line-height: 1.4;
       word-break: break-word;
-      position: relative;
-      animation: fadeIn 0.25s ease;
+      animation: fadeIn 0.2s ease;
     }
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(8px); }
+      from { opacity: 0; transform: translateY(6px); }
       to { opacity: 1; transform: translateY(0); }
     }
     .msg.sent {
       align-self: flex-end;
       background: var(--pink-400);
       color: white;
-      border-bottom-right-radius: 6px;
+      border-bottom-right-radius: 4px;
     }
     .msg.received {
       align-self: flex-start;
       background: white;
       color: var(--gray-900);
-      border-bottom-left-radius: 6px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
     }
     .msg .time {
-      font-size: 0.65rem;
+      font-size: 0.6rem;
       opacity: 0.7;
-      margin-top: 4px;
+      margin-top: 3px;
       text-align: right;
     }
     .msg img {
-      max-width: 200px;
-      border-radius: 12px;
+      max-width: 180px;
+      border-radius: 10px;
       cursor: pointer;
       display: block;
-      margin-bottom: 4px;
-    }
-    .msg .voice-note {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      min-width: 120px;
+      margin-bottom: 3px;
     }
     .msg .voice-note audio {
-      height: 36px;
+      height: 32px;
       width: 100%;
-      min-width: 140px;
+      min-width: 130px;
     }
     .system-msg {
       align-self: center;
       background: var(--gray-200);
       color: var(--gray-700);
-      font-size: 0.75rem;
-      padding: 6px 14px;
-      border-radius: 20px;
+      font-size: 0.7rem;
+      padding: 5px 12px;
+      border-radius: 14px;
       font-style: italic;
     }
+    /* Input */
+    .input-area {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      background: white;
+      border-top: 1px solid var(--gray-200);
+      flex-shrink: 0;
+      min-height: 52px;
+    }
+    .input-area input[type="text"] {
+      flex: 1;
+      border: none;
+      background: var(--gray-100);
+      border-radius: 20px;
+      padding: 8px 14px;
+      font-size: 0.9rem;
+      outline: none;
+      min-width: 0;
+    }
+    .attach-btn, .voice-btn, .send-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: none;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .attach-btn { background: var(--gray-200); color: var(--gray-700); }
+    .voice-btn { background: #fce4ec; color: var(--pink-600); }
+    .send-btn { background: var(--pink-400); color: white; }
+    .voice-btn.recording {
+      background: var(--red-500);
+      color: white;
+      animation: pulse 0.7s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.18); }
+    }
+    /* Call Overlay */
     .call-overlay {
       position: absolute;
       inset: 0;
-      background: rgba(0,0,0,0.95);
+      background: #1a1a1a;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       z-index: 100;
-      border-radius: 32px;
-      overflow: hidden;
     }
-    .call-overlay.hidden {
-      display: none;
-    }
-    .call-videos {
+    .call-overlay.hidden { display: none; }
+    .call-avatar-large {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--pink-400), var(--pink-600));
       display: flex;
-      flex-direction: column;
-      gap: 10px;
-      width: 100%;
-      padding: 10px;
-      flex: 1;
-      position: relative;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      color: white;
+      margin-bottom: 16px;
     }
-    .call-video-wrapper {
-      position: relative;
-      border-radius: 20px;
-      overflow: hidden;
-      background: #1a1a1a;
-      width: 100%;
-      height: 100%;
-    }
-    .call-video-wrapper video {
+    .call-video-full {
       width: 100%;
       height: 100%;
       object-fit: cover;
-    }
-    .call-video-wrapper.local-video {
       position: absolute;
-      bottom: 20px;
-      right: 20px;
-      width: 120px;
-      height: 160px;
-      border-radius: 16px;
+      inset: 0;
+    }
+    .call-local-pip {
+      position: absolute;
+      bottom: 100px;
+      right: 16px;
+      width: 100px;
+      height: 140px;
+      border-radius: 12px;
       border: 2px solid white;
+      object-fit: cover;
       z-index: 10;
+      background: #333;
+    }
+    .call-info {
+      color: white;
+      text-align: center;
+      padding: 10px;
+      font-size: 1rem;
+      z-index: 5;
     }
     .call-controls {
       display: flex;
       gap: 20px;
-      padding: 20px;
-      background: rgba(0,0,0,0.6);
-      border-radius: 50px;
+      padding: 16px;
+      background: rgba(0,0,0,0.5);
+      border-radius: 40px;
+      z-index: 5;
       margin-bottom: 30px;
     }
     .call-controls button {
-      width: 55px;
-      height: 55px;
+      width: 50px;
+      height: 50px;
       border-radius: 50%;
       border: none;
-      font-size: 1.4rem;
+      font-size: 1.3rem;
       cursor: pointer;
       background: rgba(255,255,255,0.2);
       color: white;
-      transition: 0.2s;
       display: flex;
       align-items: center;
       justify-content: center;
     }
     .call-controls button.end-call {
       background: var(--red-500);
-      width: 65px;
-      height: 65px;
+      width: 60px;
+      height: 60px;
     }
-    .call-controls button:active {
-      transform: scale(0.9);
-    }
-    .input-area {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 14px;
-      background: white;
-      border-top: 1px solid var(--gray-200);
-      flex-shrink: 0;
-    }
-    .input-area input[type="text"] {
-      flex: 1;
-      border: none;
-      background: var(--gray-100);
-      border-radius: 24px;
-      padding: 10px 16px;
-      font-size: 0.9rem;
-      outline: none;
-    }
-    .attach-btn, .voice-btn, .send-btn {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      border: none;
-      font-size: 1.1rem;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: 0.2s;
-      flex-shrink: 0;
-    }
-    .attach-btn {
-      background: var(--gray-200);
-      color: var(--gray-700);
-    }
-    .voice-btn {
-      background: var(--pink-100);
-      color: var(--pink-600);
-    }
-    .send-btn {
-      background: var(--pink-400);
-      color: white;
-    }
-    .voice-btn.recording {
-      background: var(--red-500);
-      color: white;
-      animation: pulse 0.8s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.2); }
-    }
+    /* Auth */
     .auth-screen {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 30px;
-      gap: 16px;
+      padding: 24px;
+      gap: 14px;
       height: 100%;
     }
-    .auth-screen h2 {
-      color: var(--pink-700);
-      font-size: 1.6rem;
-    }
+    .auth-screen h2 { color: var(--pink-700); font-size: 1.5rem; }
     .auth-screen input {
       width: 100%;
-      padding: 14px 18px;
-      border-radius: 28px;
-      border: 2px solid var(--pink-200);
+      padding: 12px 16px;
+      border-radius: 24px;
+      border: 2px solid #f8bbd0;
       background: white;
       font-size: 0.9rem;
       outline: none;
     }
-    .auth-screen input:focus {
-      border-color: var(--pink-400);
-    }
+    .auth-screen input:focus { border-color: var(--pink-400); }
     .auth-btn {
       width: 100%;
-      padding: 14px;
-      border-radius: 28px;
+      padding: 12px;
+      border-radius: 24px;
       border: none;
       background: var(--pink-400);
       color: white;
-      font-size: 1rem;
+      font-size: 0.95rem;
       font-weight: 600;
       cursor: pointer;
     }
     .auth-btn.secondary {
       background: white;
       color: var(--pink-600);
-      border: 2px solid var(--pink-300);
+      border: 2px solid #f8bbd0;
     }
-    .hidden {
-      display: none !important;
-    }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
 <div class="app" id="app">
-  <!-- Auth Screen -->
+  <!-- Auth -->
   <div class="auth-screen" id="authScreen">
     <div style="font-size:3rem;">💞</div>
     <h2>Chat & Call Pasangan</h2>
-    <input type="email" id="emailInput" placeholder="Email" autocomplete="email">
-    <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password">
+    <input type="email" id="emailInput" placeholder="Email">
+    <input type="password" id="passwordInput" placeholder="Password">
     <button class="auth-btn" id="loginBtn">💌 Masuk</button>
     <button class="auth-btn secondary" id="signupBtn">✨ Daftar</button>
-    <p style="font-size:0.7rem;color:gray;text-align:center;">Gunakan email berbeda dengan pasangan</p>
+    <p style="font-size:0.7rem;color:gray;">Gunakan email berbeda</p>
   </div>
 
-  <!-- Main Chat UI -->
-  <div class="hidden" id="mainUI" style="flex-direction:column;flex:1;overflow:hidden;">
+  <!-- Main UI -->
+  <div class="hidden" id="mainUI">
     <div class="header">
       <div class="header-left">
         <div class="avatar">❤️</div>
@@ -389,9 +389,9 @@
         </div>
       </div>
       <div class="header-actions">
-        <button class="icon-btn" id="voiceCallBtn" title="Telpon">📞</button>
-        <button class="icon-btn" id="videoCallBtn" title="Video Call">📹</button>
-        <button class="icon-btn" id="logoutBtn" title="Keluar">🚪</button>
+        <button class="icon-btn" id="voiceCallBtn">📞</button>
+        <button class="icon-btn" id="videoCallBtn">📹</button>
+        <button class="icon-btn" id="logoutBtn">🚪</button>
       </div>
     </div>
     <div class="content">
@@ -400,7 +400,7 @@
     <div class="input-area">
       <input type="file" id="imageInput" accept="image/*" style="display:none;">
       <button class="attach-btn" id="attachBtn">📎</button>
-      <input type="text" id="messageInput" placeholder="Ketik pesan..." autocomplete="off">
+      <input type="text" id="messageInput" placeholder="Ketik pesan...">
       <button class="voice-btn" id="voiceNoteBtn">🎤</button>
       <button class="send-btn" id="sendBtn">➤</button>
     </div>
@@ -408,35 +408,29 @@
 
   <!-- Call Overlay -->
   <div class="call-overlay hidden" id="callOverlay">
-    <div class="call-videos">
-      <div class="call-video-wrapper" id="remoteVideoWrapper">
-        <video id="remoteVideo" autoplay playsinline></video>
-      </div>
-      <div class="call-video-wrapper local-video hidden" id="localVideoWrapper">
-        <video id="localVideo" autoplay muted playsinline></video>
-      </div>
-    </div>
-    <div style="color:white;text-align:center;padding:10px;font-size:1.1rem;" id="callStatus">Menghubungkan...</div>
+    <div class="call-avatar-large hidden" id="callAvatar">❤️</div>
+    <video class="call-video-full hidden" id="remoteVideo" autoplay playsinline></video>
+    <video class="call-local-pip hidden" id="localVideo" autoplay muted playsinline></video>
+    <div class="call-info" id="callStatus">Menghubungkan...</div>
     <div class="call-controls">
       <button id="toggleMicBtn">🎤</button>
-      <button id="endCallBtn" class="end-call">🔴</button>
+      <button class="end-call" id="endCallBtn">🔴</button>
     </div>
   </div>
 </div>
 
 <script>
 (function() {
-  // ==================== KONFIGURASI SUPABASE ====================
+  // ==================== KONFIGURASI ====================
   const SUPABASE_URL = 'https://zxvmlhjmbtiunccshjty.supabase.co';
-  // ANON KEY HARUS LENGKAP - ambil dari Settings > API > anon public key
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4dm1saGptYnRpdW5jY3NoanR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMDQwNjUsImV4cCI6MjA5NjU4MDA2NX0.bzFwImSQKmg6beWPas0YS3VoVIIQ_tfW_1PsxuH7jBA'; // COBA CEK LAGI, INI KAYAKNYA KURANG
-
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4dm1saGptYnRpdW5jY3NoanR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMDQwNjUsImV4cCI6MjA5NjU4MDA2NX0.bzFwImSQKmg6beWPas0YS3VoVIIQ_tfW_1PsxuH7jBA';
+  
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // ==================== STATE ====================
+  // State
   let currentUser = null;
   let partnerUser = null;
-  let roomId = 'room-pasangan-utama';
+  const roomId = 'room-pasangan-utama';
   let peer = null;
   let localStream = null;
   let currentCall = null;
@@ -446,39 +440,29 @@
   let audioChunks = [];
   let isRecording = false;
   let realtimeChannel = null;
+  let callSignalChannel = null;
 
-  // ==================== DOM ====================
-  const authScreen = document.getElementById('authScreen');
-  const mainUI = document.getElementById('mainUI');
-  const messagesContainer = document.getElementById('messagesContainer');
-  const messageInput = document.getElementById('messageInput');
-  const sendBtn = document.getElementById('sendBtn');
-  const attachBtn = document.getElementById('attachBtn');
-  const imageInput = document.getElementById('imageInput');
-  const voiceNoteBtn = document.getElementById('voiceNoteBtn');
-  const voiceCallBtn = document.getElementById('voiceCallBtn');
-  const videoCallBtn = document.getElementById('videoCallBtn');
-  const logoutBtn = document.getElementById('logoutBtn');
-  const callOverlay = document.getElementById('callOverlay');
-  const localVideo = document.getElementById('localVideo');
-  const remoteVideo = document.getElementById('remoteVideo');
-  const localVideoWrapper = document.getElementById('localVideoWrapper');
-  const callStatus = document.getElementById('callStatus');
-  const toggleMicBtn = document.getElementById('toggleMicBtn');
-  const endCallBtn = document.getElementById('endCallBtn');
-  const partnerNameEl = document.getElementById('partnerName');
-  const partnerStatusEl = document.getElementById('partnerStatus');
+  // DOM
+  const $ = (id) => document.getElementById(id);
+  const authScreen = $('authScreen');
+  const mainUI = $('mainUI');
+  const messagesContainer = $('messagesContainer');
+  const messageInput = $('messageInput');
+  const callOverlay = $('callOverlay');
+  const callAvatar = $('callAvatar');
+  const remoteVideo = $('remoteVideo');
+  const localVideo = $('localVideo');
+  const callStatus = $('callStatus');
+  const partnerNameEl = $('partnerName');
+  const partnerStatusEl = $('partnerStatus');
 
-  // ==================== HELPER ====================
+  // Helper
   function scrollToBottom() {
-    setTimeout(() => {
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }, 100);
+    setTimeout(() => { messagesContainer.scrollTop = messagesContainer.scrollHeight; }, 50);
   }
 
   function formatTime() {
-    const d = new Date();
-    return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    return new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
   }
 
   function addSystemMsg(text) {
@@ -490,6 +474,7 @@
   }
 
   function addMessage(type, data, senderId) {
+    if (type === 'call_signal') return;
     const isSent = senderId === currentUser?.id;
     const div = document.createElement('div');
     div.className = `msg ${isSent ? 'sent' : 'received'}`;
@@ -502,26 +487,20 @@
       img.onclick = () => window.open(data.url, '_blank');
       div.appendChild(img);
     } else if (type === 'voice') {
-      const wrapper = document.createElement('span');
-      wrapper.className = 'voice-note';
-      wrapper.innerHTML = `🎵 <audio controls src="${data.url}"></audio>`;
-      div.appendChild(wrapper);
-    } else if (type === 'call_signal') {
-      return; // Jangan tampilkan sinyal panggilan
+      div.innerHTML = `<audio controls src="${data.url}" style="height:32px;width:100%;min-width:130px;"></audio>`;
     }
 
     const timeSpan = document.createElement('div');
     timeSpan.className = 'time';
     timeSpan.textContent = formatTime();
     div.appendChild(timeSpan);
-
     messagesContainer.appendChild(div);
     scrollToBottom();
   }
 
   // ==================== AUTH ====================
   async function checkSession() {
-    const { data: { session }, error } = await supabase.auth.getSession();
+    const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
       currentUser = session.user;
       showMainUI();
@@ -539,45 +518,29 @@
   function showMainUI() {
     authScreen.classList.add('hidden');
     mainUI.classList.remove('hidden');
-    mainUI.style.display = 'flex';
   }
 
-  // Login
-  document.getElementById('loginBtn').addEventListener('click', async () => {
-    const email = document.getElementById('emailInput').value.trim();
-    const password = document.getElementById('passwordInput').value;
-    if (!email || !password) {
-      alert('Isi email dan password');
-      return;
-    }
+  $('loginBtn').addEventListener('click', async () => {
+    const email = $('emailInput').value.trim();
+    const password = $('passwordInput').value;
+    if (!email || !password) return alert('Isi email dan password');
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      alert('Gagal masuk: ' + error.message);
-    } else {
-      currentUser = data.user;
-      showMainUI();
-      await initRealtime();
-    }
+    if (error) return alert('Gagal masuk: ' + error.message);
+    currentUser = data.user;
+    showMainUI();
+    await initRealtime();
   });
 
-  // Daftar
-  document.getElementById('signupBtn').addEventListener('click', async () => {
-    const email = document.getElementById('emailInput').value.trim();
-    const password = document.getElementById('passwordInput').value;
-    if (!email || !password) {
-      alert('Isi email dan password');
-      return;
-    }
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) {
-      alert('Gagal daftar: ' + error.message);
-    } else {
-      alert('Berhasil daftar! Silakan masuk.');
-    }
+  $('signupBtn').addEventListener('click', async () => {
+    const email = $('emailInput').value.trim();
+    const password = $('passwordInput').value;
+    if (!email || !password) return alert('Isi email dan password');
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) return alert('Gagal daftar: ' + error.message);
+    alert('Berhasil daftar! Silakan masuk.');
   });
 
-  // Logout
-  logoutBtn.addEventListener('click', async () => {
+  $('logoutBtn').addEventListener('click', async () => {
     await cleanupAll();
     await supabase.auth.signOut();
     currentUser = null;
@@ -586,71 +549,49 @@
 
   // ==================== REALTIME ====================
   async function initRealtime() {
-    // Unsubscribe dulu kalau ada
-    if (realtimeChannel) {
-      await supabase.removeChannel(realtimeChannel);
-    }
+    if (realtimeChannel) await supabase.removeChannel(realtimeChannel);
+    if (callSignalChannel) await supabase.removeChannel(callSignalChannel);
 
-    // Subscribe ke semua pesan di room
+    // Channel untuk chat
     realtimeChannel = supabase
-      .channel('room-channel')
+      .channel('chat')
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'messages',
         filter: `room_id=eq.${roomId}`
-      }, async (payload) => {
+      }, (payload) => {
         const msg = payload.new;
-        
-        // Skip pesan dari diri sendiri (sudah ditampilkan lokal)
         if (msg.user_id === currentUser?.id) return;
-        
-        // Update info partner
+
+        // Update partner info
         if (!partnerUser || partnerUser.id !== msg.user_id) {
           partnerUser = { id: msg.user_id, email: msg.sender_email };
           partnerNameEl.textContent = msg.sender_email?.split('@')[0] || 'Pasangan';
           partnerStatusEl.textContent = '🟢 online';
         }
 
-        // Parse content
         let contentData;
-        try {
-          contentData = JSON.parse(msg.content);
-        } catch (e) {
-          contentData = { text: msg.content };
-        }
+        try { contentData = JSON.parse(msg.content); } catch (e) { contentData = { text: msg.content }; }
 
-        // Handle call signal
         if (msg.type === 'call_signal') {
           handleCallSignal(contentData);
           return;
         }
 
-        // Tampilkan pesan
         addMessage(msg.type, contentData, msg.user_id);
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          console.log('✅ Realtime connected!');
-          addSystemMsg('💚 Terhubung ke room');
-          partnerStatusEl.textContent = '🟢 online (realtime aktif)';
-          
-          // Kirim sinyal presence
-          await supabase.from('messages').insert({
-            room_id: roomId,
-            user_id: currentUser.id,
-            sender_email: currentUser.email,
-            type: 'text',
-            content: JSON.stringify({ text: '👋 ' + currentUser.email?.split('@')[0] + ' bergabung' }),
-            created_at: new Date().toISOString()
-          }).then(({ error }) => {
-            if (error) console.error('Presence error:', error);
-          });
+          console.log('✅ Chat realtime OK');
+          partnerStatusEl.textContent = '🟢 online';
+          await loadOldMessages();
         }
       });
+  }
 
-    // Load pesan lama
-    const { data: oldMsgs } = await supabase
+  async function loadOldMessages() {
+    const { data } = await supabase
       .from('messages')
       .select('*')
       .eq('room_id', roomId)
@@ -658,69 +599,41 @@
       .order('created_at', { ascending: true })
       .limit(50);
 
-    if (oldMsgs) {
-      oldMsgs.forEach(msg => {
+    if (data) {
+      messagesContainer.innerHTML = '';
+      data.forEach(msg => {
         if (msg.user_id !== currentUser?.id) {
-          let contentData;
-          try {
-            contentData = JSON.parse(msg.content);
-          } catch (e) {
-            contentData = { text: msg.content };
+          let d;
+          try { d = JSON.parse(msg.content); } catch (e) { d = { text: msg.content }; }
+          addMessage(msg.type, d, msg.user_id);
+          if (!partnerUser) {
+            partnerUser = { id: msg.user_id, email: msg.sender_email };
+            partnerNameEl.textContent = msg.sender_email?.split('@')[0] || 'Pasangan';
           }
-          addMessage(msg.type, contentData, msg.user_id);
-        }
-        // Update partner
-        if (msg.user_id !== currentUser?.id && !partnerUser) {
-          partnerUser = { id: msg.user_id, email: msg.sender_email };
-          partnerNameEl.textContent = msg.sender_email?.split('@')[0] || 'Pasangan';
         }
       });
-    }
-
-    // Cari partner dari messages
-    const { data: partnerMsgs } = await supabase
-      .from('messages')
-      .select('user_id, sender_email')
-      .eq('room_id', roomId)
-      .neq('user_id', currentUser.id)
-      .limit(1)
-      .order('created_at', { ascending: false });
-
-    if (partnerMsgs && partnerMsgs.length > 0) {
-      partnerUser = { id: partnerMsgs[0].user_id, email: partnerMsgs[0].sender_email };
-      partnerNameEl.textContent = partnerMsgs[0].sender_email?.split('@')[0] || 'Pasangan';
-      partnerStatusEl.textContent = '🟢 online';
     }
   }
 
   // ==================== KIRIM PESAN ====================
   async function sendMessage(type, contentData) {
-    if (!currentUser || !roomId) {
-      alert('Kamu belum login');
-      return;
-    }
-    
-    const payload = {
+    if (!currentUser) return;
+    const { error } = await supabase.from('messages').insert({
       room_id: roomId,
       user_id: currentUser.id,
       sender_email: currentUser.email,
       type: type,
       content: JSON.stringify(contentData),
       created_at: new Date().toISOString()
-    };
-
-    const { error } = await supabase.from('messages').insert(payload);
+    });
     if (error) {
-      console.error('❌ Send error:', error);
       alert('Gagal kirim: ' + error.message);
     } else {
-      // Tampilkan langsung
       addMessage(type, contentData, currentUser.id);
     }
   }
 
-  // Kirim teks
-  sendBtn.addEventListener('click', () => {
+  $('sendBtn').addEventListener('click', () => {
     const text = messageInput.value.trim();
     if (!text) return;
     sendMessage('text', { text });
@@ -728,40 +641,28 @@
   });
 
   messageInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendBtn.click();
+    if (e.key === 'Enter') $('sendBtn').click();
   });
 
-  // Kirim gambar
-  attachBtn.addEventListener('click', () => imageInput.click());
+  $('attachBtn').addEventListener('click', () => $('imageInput').click());
 
-  imageInput.addEventListener('change', async (e) => {
+  $('imageInput').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
     const fileName = `${Date.now()}-${file.name}`;
-    const { error } = await supabase.storage
-      .from('chat-media')
-      .upload(`images/${fileName}`, file);
-    
-    if (error) {
-      alert('Upload gagal: ' + error.message);
-      return;
-    }
-    
-    const { data: urlData } = supabase.storage
-      .from('chat-media')
-      .getPublicUrl(`images/${fileName}`);
-    
+    const { error } = await supabase.storage.from('chat-media').upload(`images/${fileName}`, file);
+    if (error) return alert('Upload gagal');
+    const { data: urlData } = supabase.storage.from('chat-media').getPublicUrl(`images/${fileName}`);
     sendMessage('image', { url: urlData.publicUrl });
-    imageInput.value = '';
+    $('imageInput').value = '';
   });
 
   // Voice note
-  voiceNoteBtn.addEventListener('mousedown', startRecording);
-  voiceNoteBtn.addEventListener('mouseup', stopRecording);
-  voiceNoteBtn.addEventListener('mouseleave', stopRecording);
-  voiceNoteBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(); });
-  voiceNoteBtn.addEventListener('touchend', stopRecording);
+  $('voiceNoteBtn').addEventListener('mousedown', startRecording);
+  $('voiceNoteBtn').addEventListener('mouseup', stopRecording);
+  $('voiceNoteBtn').addEventListener('mouseleave', stopRecording);
+  $('voiceNoteBtn').addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(); });
+  $('voiceNoteBtn').addEventListener('touchend', stopRecording);
 
   async function startRecording() {
     if (isRecording) return;
@@ -774,20 +675,16 @@
         stream.getTracks().forEach(t => t.stop());
         const blob = new Blob(audioChunks, { type: 'audio/webm' });
         const fileName = `voice-${Date.now()}.webm`;
-        const { error } = await supabase.storage
-          .from('chat-media')
-          .upload(`voice/${fileName}`, blob);
+        const { error } = await supabase.storage.from('chat-media').upload(`voice/${fileName}`, blob);
         if (!error) {
-          const { data: urlData } = supabase.storage
-            .from('chat-media')
-            .getPublicUrl(`voice/${fileName}`);
+          const { data: urlData } = supabase.storage.from('chat-media').getPublicUrl(`voice/${fileName}`);
           sendMessage('voice', { url: urlData.publicUrl });
         }
       };
       mediaRecorder.start();
       isRecording = true;
-      voiceNoteBtn.classList.add('recording');
-      voiceNoteBtn.textContent = '🔴';
+      $('voiceNoteBtn').classList.add('recording');
+      $('voiceNoteBtn').textContent = '🔴';
     } catch (err) {
       alert('Mikrofon tidak bisa diakses');
     }
@@ -797,8 +694,8 @@
     if (!isRecording || !mediaRecorder) return;
     mediaRecorder.stop();
     isRecording = false;
-    voiceNoteBtn.classList.remove('recording');
-    voiceNoteBtn.textContent = '🎤';
+    $('voiceNoteBtn').classList.remove('recording');
+    $('voiceNoteBtn').textContent = '🎤';
   }
 
   // ==================== CALL ====================
@@ -809,12 +706,11 @@
         sendCallSignal('busy', {});
         return;
       }
-      // Auto answer
       answerCall(data.peerId);
     } else if (data.signal_type === 'call_ended') {
       hideCallUI();
     } else if (data.signal_type === 'busy') {
-      alert('Pasangan sedang sibuk');
+      alert('Pasangan sedang dalam panggilan');
       hideCallUI();
     }
   }
@@ -822,27 +718,24 @@
   async function startCall(video = true) {
     if (isCallActive) return;
     isVideoCall = video;
-    
+
     try {
       localStream = await navigator.mediaDevices.getUserMedia({
         video: video,
         audio: true
       });
     } catch (e) {
-      alert('Tidak bisa akses kamera/mikrofon: ' + e.message);
+      alert('Tidak bisa akses kamera/mikrofon');
       return;
     }
 
-    // Init PeerJS
+    const peerId = `call-${currentUser.id.substring(0, 8)}-${Date.now().toString(36)}`;
     if (peer) peer.destroy();
-    const peerId = `pasangan-${currentUser.id.substring(0, 8)}-${Date.now().toString(36)}`;
     peer = new Peer(peerId);
 
     peer.on('open', (id) => {
-      console.log('Peer siap:', id);
       showCallUI(true);
-      // Kirim sinyal panggilan ke pasangan
-      sendCallSignal('incoming_call', { video: video, peerId: id });
+      sendCallSignal('incoming_call', { video, peerId: id });
     });
 
     peer.on('call', (incomingCall) => {
@@ -853,7 +746,6 @@
 
     peer.on('error', (err) => {
       console.error('Peer error:', err);
-      alert('Error koneksi: ' + err.type);
       hideCallUI();
     });
   }
@@ -869,8 +761,8 @@
       return;
     }
 
+    const peerId = `call-${currentUser.id.substring(0, 8)}-${Date.now().toString(36)}`;
     if (peer) peer.destroy();
-    const peerId = `pasangan-${currentUser.id.substring(0, 8)}-${Date.now().toString(36)}`;
     peer = new Peer(peerId);
 
     peer.on('open', () => {
@@ -888,7 +780,21 @@
 
   function setupCallStream(call) {
     call.on('stream', (remoteStream) => {
-      remoteVideo.srcObject = remoteStream;
+      if (isVideoCall) {
+        remoteVideo.srcObject = remoteStream;
+        remoteVideo.classList.remove('hidden');
+        callAvatar.classList.add('hidden');
+      } else {
+        // Voice call: tampilkan avatar saja
+        const audioTrack = remoteStream.getAudioTracks()[0];
+        if (audioTrack) {
+          const audioEl = new Audio();
+          audioEl.srcObject = new MediaStream([audioTrack]);
+          audioEl.play().catch(() => {});
+        }
+        callAvatar.classList.remove('hidden');
+        remoteVideo.classList.add('hidden');
+      }
       callStatus.textContent = '💞 Terhubung';
     });
     call.on('close', hideCallUI);
@@ -898,21 +804,35 @@
   function showCallUI(isCaller) {
     callOverlay.classList.remove('hidden');
     isCallActive = true;
-    localVideo.srcObject = localStream;
-    localVideoWrapper.classList.remove('hidden');
+
+    if (isVideoCall) {
+      localVideo.srcObject = localStream;
+      localVideo.classList.remove('hidden');
+      callAvatar.classList.add('hidden');
+    } else {
+      localVideo.classList.add('hidden');
+      callAvatar.classList.remove('hidden');
+      callAvatar.textContent = '❤️';
+    }
+
     callStatus.textContent = isCaller ? '📞 Memanggil...' : '📲 Menerima panggilan...';
   }
 
   function hideCallUI() {
     callOverlay.classList.add('hidden');
     isCallActive = false;
+
     if (localStream) {
       localStream.getTracks().forEach(t => t.stop());
       localStream = null;
     }
+
     localVideo.srcObject = null;
     remoteVideo.srcObject = null;
-    localVideoWrapper.classList.add('hidden');
+    localVideo.classList.add('hidden');
+    remoteVideo.classList.add('hidden');
+    callAvatar.classList.add('hidden');
+
     if (currentCall) {
       currentCall.close();
       currentCall = null;
@@ -924,7 +844,7 @@
   }
 
   function sendCallSignal(type, data) {
-    if (!roomId || !currentUser) return;
+    if (!currentUser) return;
     supabase.from('messages').insert({
       room_id: roomId,
       user_id: currentUser.id,
@@ -938,19 +858,19 @@
   }
 
   // ==================== BUTTON CALL ====================
-  voiceCallBtn.addEventListener('click', () => startCall(false));
-  videoCallBtn.addEventListener('click', () => startCall(true));
-  endCallBtn.addEventListener('click', () => {
+  $('voiceCallBtn').addEventListener('click', () => startCall(false));
+  $('videoCallBtn').addEventListener('click', () => startCall(true));
+  $('endCallBtn').addEventListener('click', () => {
     sendCallSignal('call_ended', {});
     hideCallUI();
   });
 
-  toggleMicBtn.addEventListener('click', () => {
+  $('toggleMicBtn').addEventListener('click', () => {
     if (localStream) {
       const audio = localStream.getAudioTracks()[0];
       if (audio) {
         audio.enabled = !audio.enabled;
-        toggleMicBtn.textContent = audio.enabled ? '🎤' : '🔇';
+        $('toggleMicBtn').textContent = audio.enabled ? '🎤' : '🔇';
       }
     }
   });
