@@ -14,9 +14,6 @@
       --red: #f44336;
       --green: #4caf50;
       --white: #fff;
-      --gray: #f5f5f5;
-      --gray-dark: #616161;
-      --shadow: 0 4px 20px rgba(0,0,0,0.08);
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
@@ -50,7 +47,7 @@
       position: relative;
     }
 
-    /* Login Screen */
+    /* Login */
     .login-screen {
       display: flex;
       flex-direction: column;
@@ -63,8 +60,7 @@
     }
     .login-screen .icon { font-size: 4rem; animation: bounce 2s infinite; }
     @keyframes bounce {
-      0%,100%{transform:translateY(0)}
-      50%{transform:translateY(-15px)}
+      0%,100%{transform:translateY(0)} 50%{transform:translateY(-15px)}
     }
     .login-screen h2 { color: var(--pink-dark); font-size: 1.6rem; font-weight: 700; }
     .login-screen input {
@@ -82,7 +78,7 @@
     .btn-outline { background: white; color: var(--pink); border: 2px solid #f8bbd0; }
     .btn-outline:active { background: var(--pink-light); }
 
-    /* Chat Screen */
+    /* Chat */
     .chat-screen { display: flex; flex-direction: column; height: 100%; }
     
     .chat-header {
@@ -131,7 +127,7 @@
     .msg img { max-width: 200px; border-radius: 10px; cursor: pointer; display: block; }
     .msg audio { height: 30px; margin-top: 4px; }
     .sys-msg {
-      align-self: center; font-size: 0.7rem; color: var(--gray-dark);
+      align-self: center; font-size: 0.7rem; color: #666;
       background: #eee; padding: 4px 12px; border-radius: 10px; font-style: italic;
     }
 
@@ -169,11 +165,8 @@
       animation: heartbeat 1.2s infinite;
     }
     @keyframes heartbeat {
-      0%,100%{transform:scale(1)}
-      15%{transform:scale(1.15)}
-      30%{transform:scale(1)}
-      45%{transform:scale(1.1)}
-      60%{transform:scale(1)}
+      0%,100%{transform:scale(1)} 15%{transform:scale(1.15)}
+      30%{transform:scale(1)} 45%{transform:scale(1.1)} 60%{transform:scale(1)}
     }
     .call-video-remote { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
     .call-video-local {
@@ -190,6 +183,24 @@
     }
     .call-buttons .btn-end { background: var(--red); width: 65px; height: 65px; }
     .call-buttons button:active { transform: scale(0.9); }
+
+    /* Incoming Call Notification */
+    .incoming-notif {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.85); z-index: 300;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 20px;
+    }
+    .incoming-notif.hidden { display: none; }
+    .incoming-notif .caller-name { color: white; font-size: 1.4rem; font-weight: 600; }
+    .incoming-notif .caller-info { color: #ccc; font-size: 1rem; }
+    .incoming-notif .notif-buttons { display: flex; gap: 20px; }
+    .incoming-notif .notif-buttons button {
+      width: 60px; height: 60px; border-radius: 50%; border: none;
+      font-size: 1.5rem; cursor: pointer; color: white;
+    }
+    .btn-accept { background: var(--green); }
+    .btn-reject { background: var(--red); }
 
     .hidden { display: none !important; }
   </style>
@@ -236,6 +247,17 @@
     </div>
   </div>
 
+  <!-- INCOMING CALL NOTIFICATION -->
+  <div class="incoming-notif hidden" id="incomingNotif">
+    <div style="font-size:4rem;">📞</div>
+    <div class="caller-name" id="incomingCaller">Pasangan</div>
+    <div class="caller-info" id="incomingType">Panggilan Suara</div>
+    <div class="notif-buttons">
+      <button class="btn-accept" id="acceptCallBtn">✅</button>
+      <button class="btn-reject" id="rejectCallBtn">❌</button>
+    </div>
+  </div>
+
   <!-- CALL -->
   <div class="call-overlay hidden" id="callOverlay">
     <div class="call-avatar-big hidden" id="callAvatar">❤️</div>
@@ -264,6 +286,7 @@
   let isCallActive = false, isVideo = false;
   let mediaRecorder = null, audioChunks = [], isRecording = false;
   let channel = null;
+  let pendingSignal = null; // Simpan sinyal panggilan masuk
 
   // ========== DOM ==========
   const $ = id => document.getElementById(id);
@@ -278,6 +301,9 @@
   const callStatus = $('callStatus');
   const partnerName = $('partnerName');
   const partnerStatus = $('partnerStatus');
+  const incomingNotif = $('incomingNotif');
+  const incomingCaller = $('incomingCaller');
+  const incomingType = $('incomingType');
 
   // ========== HELPERS ==========
   function scrollDown() {
@@ -373,7 +399,7 @@
           let data;
           try { data = JSON.parse(msg.content); } catch(e) { data = {text: msg.content}; }
 
-          if (msg.type === 'call_signal') { handleSignal(data); return; }
+          if (msg.type === 'call_signal') { handleSignal(data, msg.sender_email); return; }
           addMsg(msg.type, data, msg.user_id);
         }
       )
@@ -388,19 +414,17 @@
   async function loadHistory() {
     const { data } = await supabase.from('messages')
       .select('*').eq('room_id', ROOM).neq('type','call_signal')
-      .order('created_at', {ascending:true}).limit(50);
+      .order('created_at', {ascending:true}).limit(100);
     
-    if (data) {
+    if (data && data.length > 0) {
       messagesArea.innerHTML = '';
       data.forEach(msg => {
-        if (msg.user_id !== user?.id) {
-          let d;
-          try { d = JSON.parse(msg.content); } catch(e) { d = {text: msg.content}; }
-          addMsg(msg.type, d, msg.user_id);
-          if (!partner) {
-            partner = {id: msg.user_id, email: msg.sender_email};
-            partnerName.textContent = msg.sender_email?.split('@')[0] || 'Sayang';
-          }
+        let d;
+        try { d = JSON.parse(msg.content); } catch(e) { d = {text: msg.content}; }
+        addMsg(msg.type, d, msg.user_id);
+        if (msg.user_id !== user?.id && !partner) {
+          partner = {id: msg.user_id, email: msg.sender_email};
+          partnerName.textContent = msg.sender_email?.split('@')[0] || 'Sayang';
         }
       });
     }
@@ -422,6 +446,7 @@
     if (!t) return;
     sendMsg('text', {text: t});
     messageInput.value = '';
+    messageInput.focus();
   };
 
   messageInput.onkeypress = (e) => { if (e.key==='Enter') $('sendBtn').click(); };
@@ -479,18 +504,70 @@
   }
 
   // ========== CALL ==========
-  function handleSignal(data) {
+  function handleSignal(data, senderEmail) {
     if (data.signal === 'incoming_call') {
+      // Tampilkan notifikasi
+      pendingSignal = data;
       isVideo = data.video;
-      if (isCallActive) { sendSignal('busy',{}); return; }
-      answerCall(data.peerId);
+      incomingCaller.textContent = senderEmail?.split('@')[0] || 'Pasangan';
+      incomingType.textContent = data.video ? 'Panggilan Video 📹' : 'Panggilan Suara 📞';
+      incomingNotif.classList.remove('hidden');
     } else if (data.signal === 'call_ended') {
       endCall();
+      incomingNotif.classList.add('hidden');
+      pendingSignal = null;
     } else if (data.signal === 'busy') {
       alert('Pasangan sedang sibuk');
       endCall();
+      incomingNotif.classList.add('hidden');
+    } else if (data.signal === 'call_accepted') {
+      // Pasangan menerima, mulai koneksi
+      if (data.peerId && peer) {
+        const call = peer.call(data.peerId, localStream);
+        currentCall = call;
+        onCallStream(call);
+      }
     }
   }
+
+  // Accept call
+  $('acceptCallBtn').onclick = async () => {
+    incomingNotif.classList.add('hidden');
+    if (!pendingSignal) return;
+    
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({video: isVideo, audio:true});
+    } catch(e) { alert('Kamera/mikrofon tidak bisa diakses'); return; }
+
+    const id = `call-${user.id.slice(0,8)}-${Date.now().toString(36)}`;
+    if (peer) peer.destroy();
+    peer = new Peer(id);
+
+    peer.on('open', () => {
+      showCallUI(false);
+      sendSignal('call_accepted', {peerId: id});
+      // Call balik
+      const call = peer.call(pendingSignal.peerId, localStream);
+      currentCall = call;
+      onCallStream(call);
+    });
+
+    peer.on('call', (inc) => {
+      currentCall = inc;
+      inc.answer(localStream);
+      onCallStream(inc);
+    });
+
+    peer.on('error', () => endCall());
+    pendingSignal = null;
+  };
+
+  // Reject call
+  $('rejectCallBtn').onclick = () => {
+    incomingNotif.classList.add('hidden');
+    sendSignal('busy', {});
+    pendingSignal = null;
+  };
 
   async function startCall(video) {
     if (isCallActive) return;
@@ -517,25 +594,6 @@
     peer.on('error', () => endCall());
   }
 
-  async function answerCall(remoteId) {
-    try {
-      localStream = await navigator.mediaDevices.getUserMedia({video: isVideo, audio:true});
-    } catch(e) { alert('Kamera/mikrofon tidak bisa diakses'); return; }
-
-    const id = `call-${user.id.slice(0,8)}-${Date.now().toString(36)}`;
-    if (peer) peer.destroy();
-    peer = new Peer(id);
-
-    peer.on('open', () => {
-      showCallUI(false);
-      const c = peer.call(remoteId, localStream);
-      currentCall = c;
-      onCallStream(c);
-    });
-
-    peer.on('error', () => endCall());
-  }
-
   function onCallStream(call) {
     call.on('stream', (remoteStream) => {
       if (isVideo) {
@@ -545,7 +603,6 @@
       } else {
         callAvatar.classList.remove('hidden');
         remoteVideo.classList.add('hidden');
-        // Play audio for voice call
         const a = new Audio();
         a.srcObject = remoteStream;
         a.play().catch(()=>{});
@@ -607,6 +664,8 @@
   // ========== CLEANUP ==========
   async function cleanup() {
     endCall();
+    incomingNotif.classList.add('hidden');
+    pendingSignal = null;
     if (channel) { await supabase.removeChannel(channel); channel = null; }
     messagesArea.innerHTML = '';
     partner = null;
