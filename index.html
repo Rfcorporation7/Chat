@@ -28,7 +28,6 @@
       --gray-900: #212121;
       --red-500: #f44336;
       --green-500: #4caf50;
-      --amber-500: #ff9800;
     }
     * {
       margin: 0;
@@ -57,8 +56,8 @@
       flex-direction: column;
       overflow: hidden;
       border: 1px solid rgba(255,255,255,0.6);
+      position: relative;
     }
-    /* Header */
     .header {
       background: linear-gradient(135deg, var(--pink-400), var(--pink-600));
       color: white;
@@ -116,13 +115,6 @@
       background: rgba(255,255,255,0.4);
       transform: scale(0.92);
     }
-    .icon-btn.call-btn {
-      background: rgba(255,255,255,0.35);
-      width: 42px;
-      height: 42px;
-      font-size: 1.2rem;
-    }
-    /* Content area */
     .content {
       flex: 1;
       overflow-y: auto;
@@ -130,7 +122,6 @@
       flex-direction: column;
       background: var(--gray-50);
     }
-    /* Messages */
     .messages {
       flex: 1;
       overflow-y: auto;
@@ -199,7 +190,6 @@
       border-radius: 20px;
       font-style: italic;
     }
-    /* Call overlay */
     .call-overlay {
       position: absolute;
       inset: 0;
@@ -222,57 +212,61 @@
       width: 100%;
       padding: 10px;
       flex: 1;
+      position: relative;
     }
     .call-video-wrapper {
       position: relative;
       border-radius: 20px;
       overflow: hidden;
       background: #1a1a1a;
-      flex: 1;
+      width: 100%;
+      height: 100%;
     }
     .call-video-wrapper video {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
-    .call-video-wrapper.local {
+    .call-video-wrapper.local-video {
       position: absolute;
-      bottom: 100px;
-      right: 16px;
-      width: 110px;
-      height: 150px;
+      bottom: 20px;
+      right: 20px;
+      width: 120px;
+      height: 160px;
       border-radius: 16px;
       border: 2px solid white;
       z-index: 10;
     }
     .call-controls {
       display: flex;
-      gap: 16px;
-      padding: 16px;
-      background: rgba(0,0,0,0.5);
-      border-radius: 40px;
-      margin-bottom: 20px;
+      gap: 20px;
+      padding: 20px;
+      background: rgba(0,0,0,0.6);
+      border-radius: 50px;
+      margin-bottom: 30px;
     }
     .call-controls button {
-      width: 50px;
-      height: 50px;
+      width: 55px;
+      height: 55px;
       border-radius: 50%;
       border: none;
-      font-size: 1.3rem;
+      font-size: 1.4rem;
       cursor: pointer;
       background: rgba(255,255,255,0.2);
       color: white;
       transition: 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .call-controls button.end-call {
       background: var(--red-500);
-      width: 60px;
-      height: 60px;
+      width: 65px;
+      height: 65px;
     }
     .call-controls button:active {
       transform: scale(0.9);
     }
-    /* Input area */
     .input-area {
       display: flex;
       align-items: center;
@@ -292,11 +286,11 @@
       outline: none;
     }
     .attach-btn, .voice-btn, .send-btn {
-      width: 38px;
-      height: 38px;
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
       border: none;
-      font-size: 1rem;
+      font-size: 1.1rem;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -319,21 +313,20 @@
     .voice-btn.recording {
       background: var(--red-500);
       color: white;
-      animation: pulse 1s infinite;
+      animation: pulse 0.8s infinite;
     }
     @keyframes pulse {
       0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.15); }
+      50% { transform: scale(1.2); }
     }
-    /* Auth screen */
     .auth-screen {
-      flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 24px;
+      padding: 30px;
       gap: 16px;
+      height: 100%;
     }
     .auth-screen h2 {
       color: var(--pink-700);
@@ -370,10 +363,6 @@
     .hidden {
       display: none !important;
     }
-    @media (max-width: 380px) {
-      .header-info h3 { font-size: 0.8rem; }
-      .call-video-wrapper.local { width: 80px; height: 110px; bottom: 80px; right: 8px; }
-    }
   </style>
 </head>
 <body>
@@ -386,22 +375,22 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password">
     <button class="auth-btn" id="loginBtn">💌 Masuk</button>
     <button class="auth-btn secondary" id="signupBtn">✨ Daftar</button>
-    <p style="font-size:0.7rem;color:gray;">Gunakan email yang sama dengan pasangan?<br>Nanti dibuatkan room otomatis.</p>
+    <p style="font-size:0.7rem;color:gray;text-align:center;">Gunakan email berbeda dengan pasangan</p>
   </div>
 
   <!-- Main Chat UI -->
-  <div class="hidden" id="mainUI" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+  <div class="hidden" id="mainUI" style="flex-direction:column;flex:1;overflow:hidden;">
     <div class="header">
       <div class="header-left">
         <div class="avatar">❤️</div>
         <div class="header-info">
           <h3 id="partnerName">Pasangan</h3>
-          <span id="partnerStatus">offline</span>
+          <span id="partnerStatus">⚪ offline</span>
         </div>
       </div>
       <div class="header-actions">
-        <button class="icon-btn call-btn" id="voiceCallBtn" title="Panggilan Suara">📞</button>
-        <button class="icon-btn call-btn" id="videoCallBtn" title="Panggilan Video">📹</button>
+        <button class="icon-btn" id="voiceCallBtn" title="Telpon">📞</button>
+        <button class="icon-btn" id="videoCallBtn" title="Video Call">📹</button>
         <button class="icon-btn" id="logoutBtn" title="Keluar">🚪</button>
       </div>
     </div>
@@ -419,19 +408,18 @@
 
   <!-- Call Overlay -->
   <div class="call-overlay hidden" id="callOverlay">
-    <div class="call-videos" id="callVideos">
+    <div class="call-videos">
       <div class="call-video-wrapper" id="remoteVideoWrapper">
         <video id="remoteVideo" autoplay playsinline></video>
       </div>
-      <div class="call-video-wrapper local hidden" id="localVideoWrapper">
+      <div class="call-video-wrapper local-video hidden" id="localVideoWrapper">
         <video id="localVideo" autoplay muted playsinline></video>
       </div>
     </div>
-    <div style="color:white;text-align:center;padding:8px;" id="callStatus">Menghubungkan...</div>
+    <div style="color:white;text-align:center;padding:10px;font-size:1.1rem;" id="callStatus">Menghubungkan...</div>
     <div class="call-controls">
       <button id="toggleMicBtn">🎤</button>
-      <button id="toggleSpeakerBtn">🔊</button>
-      <button class="end-call" id="endCallBtn">🔴</button>
+      <button id="endCallBtn" class="end-call">🔴</button>
     </div>
   </div>
 </div>
@@ -439,15 +427,16 @@
 <script>
 (function() {
   // ==================== KONFIGURASI SUPABASE ====================
-  const SUPABASE_URL = 'https://zxvmlhjmbtiunccshjty.supabase.co';  // GANTI
-  const SUPABASE_ANON_KEY = 'sb_publishable_Eosb0o5Smn_NrPU3H2rPrQ_QJz79riw';                   // GANTI
+  const SUPABASE_URL = 'https://zxvmlhjmbtiunccshjty.supabase.co';
+  // ANON KEY HARUS LENGKAP - ambil dari Settings > API > anon public key
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4dm1saGptYnRpdW5jY3NoanR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMDQwNjUsImV4cCI6MjA5NjU4MDA2NX0.bzFwImSQKmg6beWPas0YS3VoVIIQ_tfW_1PsxuH7jBA'; // COBA CEK LAGI, INI KAYAKNYA KURANG
 
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   // ==================== STATE ====================
   let currentUser = null;
   let partnerUser = null;
-  let roomId = null;
+  let roomId = 'room-pasangan-utama';
   let peer = null;
   let localStream = null;
   let currentCall = null;
@@ -456,8 +445,7 @@
   let mediaRecorder = null;
   let audioChunks = [];
   let isRecording = false;
-  let messagesSubscription = null;
-  let presenceChannel = null;
+  let realtimeChannel = null;
 
   // ==================== DOM ====================
   const authScreen = document.getElementById('authScreen');
@@ -477,14 +465,15 @@
   const localVideoWrapper = document.getElementById('localVideoWrapper');
   const callStatus = document.getElementById('callStatus');
   const toggleMicBtn = document.getElementById('toggleMicBtn');
-  const toggleSpeakerBtn = document.getElementById('toggleSpeakerBtn');
   const endCallBtn = document.getElementById('endCallBtn');
   const partnerNameEl = document.getElementById('partnerName');
   const partnerStatusEl = document.getElementById('partnerStatus');
 
   // ==================== HELPER ====================
   function scrollToBottom() {
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    setTimeout(() => {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }, 100);
   }
 
   function formatTime() {
@@ -512,19 +501,13 @@
       img.src = data.url;
       img.onclick = () => window.open(data.url, '_blank');
       div.appendChild(img);
-      if (data.text) {
-        const p = document.createElement('span');
-        p.textContent = data.text;
-        div.appendChild(p);
-      }
     } else if (type === 'voice') {
       const wrapper = document.createElement('span');
       wrapper.className = 'voice-note';
       wrapper.innerHTML = `🎵 <audio controls src="${data.url}"></audio>`;
       div.appendChild(wrapper);
     } else if (type === 'call_signal') {
-      // tidak ditampilkan
-      return;
+      return; // Jangan tampilkan sinyal panggilan
     }
 
     const timeSpan = document.createElement('div');
@@ -538,10 +521,11 @@
 
   // ==================== AUTH ====================
   async function checkSession() {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session }, error } = await supabase.auth.getSession();
     if (session?.user) {
       currentUser = session.user;
-      await enterApp();
+      showMainUI();
+      await initRealtime();
     } else {
       showAuth();
     }
@@ -552,170 +536,194 @@
     mainUI.classList.add('hidden');
   }
 
-  async function enterApp() {
+  function showMainUI() {
     authScreen.classList.add('hidden');
     mainUI.classList.remove('hidden');
-    await setupRoomAndPartner();
-    await subscribeMessages();
-    await setupPresence();
+    mainUI.style.display = 'flex';
   }
 
+  // Login
   document.getElementById('loginBtn').addEventListener('click', async () => {
     const email = document.getElementById('emailInput').value.trim();
     const password = document.getElementById('passwordInput').value;
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) alert('Gagal masuk: ' + error.message);
-  });
-
-  document.getElementById('signupBtn').addEventListener('click', async () => {
-    const email = document.getElementById('emailInput').value.trim();
-    const password = document.getElementById('passwordInput').value;
-    const { error } = await supabase.auth.signUp({ email, password });
-    if (error) alert('Gagal daftar: ' + error.message);
-    else alert('Berhasil daftar! Silakan masuk.');
-  });
-
-  logoutBtn.addEventListener('click', async () => {
-    await cleanupAll();
-    await supabase.auth.signOut();
-    showAuth();
-  });
-
-  supabase.auth.onAuthStateChange(async (event, session) => {
-    if (event === 'SIGNED_IN' && session?.user) {
-      currentUser = session.user;
-      await enterApp();
-    } else if (event === 'SIGNED_OUT') {
-      currentUser = null;
-      await cleanupAll();
-      showAuth();
+    if (!email || !password) {
+      alert('Isi email dan password');
+      return;
+    }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      alert('Gagal masuk: ' + error.message);
+    } else {
+      currentUser = data.user;
+      showMainUI();
+      await initRealtime();
     }
   });
 
-  // ==================== ROOM & PARTNER ====================
-  async function setupRoomAndPartner() {
-    // Cari pasangan berdasarkan domain email yang sama? 
-    // Untuk simple: kita pakai room berdasarkan sepasang user ID yang diurutkan
-    // Tapi butuh cara menemukan pasangan. 
-    // Pendekatan: user saling invite? 
-    // Untuk auto: kita asumsikan hanya 2 user dalam sistem, atau pakai tabel partners.
-    // 
-    // SOLUSI SIMPLE: Room ID = gabungan 2 email yang di-sort (jika email berbeda)
-    // Tapi kita perlu tahu email partner dulu.
-    // 
-    // Alternatif: Buat tabel "rooms" & "room_members" manual via Supabase.
-    // Karena harus praktis, kita pakai: Room ID = 'room-pasangan' (single room untuk semua)
-    // Lalu semua user dalam 1 room bisa chat. Untuk 2 orang, ini cukup.
-    
-    roomId = 'room-pasangan-utama';
-    
-    // Ambil semua user dalam room ini (dari tabel messages distinct user_id)
-    // Tapi lebih baik pakai presence.
-    
-    // Untuk nama partner, kita cek dari messages siapa selain currentUser
-    partnerNameEl.textContent = 'Pasangan 💕';
-    partnerStatusEl.textContent = 'menunggu...';
-    
-    // Coba cari partner dari pesan terakhir
-    const { data: msgs } = await supabase
+  // Daftar
+  document.getElementById('signupBtn').addEventListener('click', async () => {
+    const email = document.getElementById('emailInput').value.trim();
+    const password = document.getElementById('passwordInput').value;
+    if (!email || !password) {
+      alert('Isi email dan password');
+      return;
+    }
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) {
+      alert('Gagal daftar: ' + error.message);
+    } else {
+      alert('Berhasil daftar! Silakan masuk.');
+    }
+  });
+
+  // Logout
+  logoutBtn.addEventListener('click', async () => {
+    await cleanupAll();
+    await supabase.auth.signOut();
+    currentUser = null;
+    showAuth();
+  });
+
+  // ==================== REALTIME ====================
+  async function initRealtime() {
+    // Unsubscribe dulu kalau ada
+    if (realtimeChannel) {
+      await supabase.removeChannel(realtimeChannel);
+    }
+
+    // Subscribe ke semua pesan di room
+    realtimeChannel = supabase
+      .channel('room-channel')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `room_id=eq.${roomId}`
+      }, async (payload) => {
+        const msg = payload.new;
+        
+        // Skip pesan dari diri sendiri (sudah ditampilkan lokal)
+        if (msg.user_id === currentUser?.id) return;
+        
+        // Update info partner
+        if (!partnerUser || partnerUser.id !== msg.user_id) {
+          partnerUser = { id: msg.user_id, email: msg.sender_email };
+          partnerNameEl.textContent = msg.sender_email?.split('@')[0] || 'Pasangan';
+          partnerStatusEl.textContent = '🟢 online';
+        }
+
+        // Parse content
+        let contentData;
+        try {
+          contentData = JSON.parse(msg.content);
+        } catch (e) {
+          contentData = { text: msg.content };
+        }
+
+        // Handle call signal
+        if (msg.type === 'call_signal') {
+          handleCallSignal(contentData);
+          return;
+        }
+
+        // Tampilkan pesan
+        addMessage(msg.type, contentData, msg.user_id);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Realtime connected!');
+          addSystemMsg('💚 Terhubung ke room');
+          partnerStatusEl.textContent = '🟢 online (realtime aktif)';
+          
+          // Kirim sinyal presence
+          await supabase.from('messages').insert({
+            room_id: roomId,
+            user_id: currentUser.id,
+            sender_email: currentUser.email,
+            type: 'text',
+            content: JSON.stringify({ text: '👋 ' + currentUser.email?.split('@')[0] + ' bergabung' }),
+            created_at: new Date().toISOString()
+          }).then(({ error }) => {
+            if (error) console.error('Presence error:', error);
+          });
+        }
+      });
+
+    // Load pesan lama
+    const { data: oldMsgs } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('room_id', roomId)
+      .neq('type', 'call_signal')
+      .order('created_at', { ascending: true })
+      .limit(50);
+
+    if (oldMsgs) {
+      oldMsgs.forEach(msg => {
+        if (msg.user_id !== currentUser?.id) {
+          let contentData;
+          try {
+            contentData = JSON.parse(msg.content);
+          } catch (e) {
+            contentData = { text: msg.content };
+          }
+          addMessage(msg.type, contentData, msg.user_id);
+        }
+        // Update partner
+        if (msg.user_id !== currentUser?.id && !partnerUser) {
+          partnerUser = { id: msg.user_id, email: msg.sender_email };
+          partnerNameEl.textContent = msg.sender_email?.split('@')[0] || 'Pasangan';
+        }
+      });
+    }
+
+    // Cari partner dari messages
+    const { data: partnerMsgs } = await supabase
       .from('messages')
       .select('user_id, sender_email')
       .eq('room_id', roomId)
       .neq('user_id', currentUser.id)
       .limit(1)
       .order('created_at', { ascending: false });
-    
-    if (msgs && msgs.length > 0) {
-      partnerUser = { id: msgs[0].user_id, email: msgs[0].sender_email };
-      partnerNameEl.textContent = partnerUser.email?.split('@')[0] || 'Pasangan';
+
+    if (partnerMsgs && partnerMsgs.length > 0) {
+      partnerUser = { id: partnerMsgs[0].user_id, email: partnerMsgs[0].sender_email };
+      partnerNameEl.textContent = partnerMsgs[0].sender_email?.split('@')[0] || 'Pasangan';
+      partnerStatusEl.textContent = '🟢 online';
     }
   }
 
-  // ==================== DATABASE SETUP ====================
-  // Tabel: messages (id, room_id, user_id, sender_email, type, content, created_at)
-  // Supabase Storage bucket: 'chat-media' (public)
-
-  async function subscribeMessages() {
-    if (messagesSubscription) {
-      supabase.removeChannel(messagesSubscription);
+  // ==================== KIRIM PESAN ====================
+  async function sendMessage(type, contentData) {
+    if (!currentUser || !roomId) {
+      alert('Kamu belum login');
+      return;
     }
-    messagesSubscription = supabase
-      .channel('room-' + roomId)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: `room_id=eq.${roomId}`
-      }, (payload) => {
-        const msg = payload.new;
-        if (msg.user_id !== currentUser?.id) {
-          const data = typeof msg.content === 'string' ? JSON.parse(msg.content) : msg.content;
-          addMessage(msg.type, data, msg.user_id);
-          // Update partner info
-          if (!partnerUser || partnerUser.id !== msg.user_id) {
-            partnerUser = { id: msg.user_id, email: msg.sender_email };
-            partnerNameEl.textContent = msg.sender_email?.split('@')[0] || 'Pasangan';
-          }
-        }
-      })
-      .subscribe();
-  }
-
-  async function setupPresence() {
-    // Track online status via Supabase Realtime Presence
-    presenceChannel = supabase.channel('online-users', {
-      config: { presence: { key: currentUser.email } }
-    });
     
-    presenceChannel
-      .on('presence', { event: 'sync' }, () => {
-        const state = presenceChannel.presenceState();
-        const users = Object.values(state).flat();
-        const online = users.filter(u => u.email !== currentUser.email);
-        if (online.length > 0) {
-          partnerStatusEl.textContent = '🟢 online';
-          if (!partnerUser) {
-            partnerUser = { id: online[0].user_id, email: online[0].email };
-            partnerNameEl.textContent = online[0].email?.split('@')[0] || 'Pasangan';
-          }
-        } else {
-          partnerStatusEl.textContent = '⚪ offline';
-        }
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await presenceChannel.track({
-            user_id: currentUser.id,
-            email: currentUser.email,
-            online_at: new Date().toISOString()
-          });
-        }
-      });
-  }
-
-  async function sendMessage(type, contentData, textFallback = '') {
-    if (!currentUser || !roomId) return;
     const payload = {
       room_id: roomId,
       user_id: currentUser.id,
       sender_email: currentUser.email,
       type: type,
-      content: typeof contentData === 'string' ? contentData : JSON.stringify(contentData),
+      content: JSON.stringify(contentData),
       created_at: new Date().toISOString()
     };
+
     const { error } = await supabase.from('messages').insert(payload);
-    if (error) console.error('Send error:', error);
-    else {
-      const data = typeof contentData === 'string' ? JSON.parse(contentData) : contentData;
-      addMessage(type, data, currentUser.id);
+    if (error) {
+      console.error('❌ Send error:', error);
+      alert('Gagal kirim: ' + error.message);
+    } else {
+      // Tampilkan langsung
+      addMessage(type, contentData, currentUser.id);
     }
   }
 
-  // ==================== CHAT ACTIONS ====================
+  // Kirim teks
   sendBtn.addEventListener('click', () => {
     const text = messageInput.value.trim();
     if (!text) return;
-    sendMessage('text', JSON.stringify({ text }), text);
+    sendMessage('text', { text });
     messageInput.value = '';
   });
 
@@ -723,36 +731,43 @@
     if (e.key === 'Enter') sendBtn.click();
   });
 
+  // Kirim gambar
   attachBtn.addEventListener('click', () => imageInput.click());
 
   imageInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    
     const fileName = `${Date.now()}-${file.name}`;
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('chat-media')
       .upload(`images/${fileName}`, file);
-    if (error) { alert('Upload gagal: ' + error.message); return; }
+    
+    if (error) {
+      alert('Upload gagal: ' + error.message);
+      return;
+    }
+    
     const { data: urlData } = supabase.storage
       .from('chat-media')
       .getPublicUrl(`images/${fileName}`);
-    sendMessage('image', JSON.stringify({ url: urlData.publicUrl }), '📷 Gambar');
+    
+    sendMessage('image', { url: urlData.publicUrl });
     imageInput.value = '';
   });
 
-  // Voice Note
+  // Voice note
   voiceNoteBtn.addEventListener('mousedown', startRecording);
   voiceNoteBtn.addEventListener('mouseup', stopRecording);
   voiceNoteBtn.addEventListener('mouseleave', stopRecording);
-  voiceNoteBtn.addEventListener('touchstart', startRecording);
+  voiceNoteBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(); });
   voiceNoteBtn.addEventListener('touchend', stopRecording);
 
-  async function startRecording(e) {
-    e.preventDefault();
+  async function startRecording() {
     if (isRecording) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      mediaRecorder = new MediaRecorder(stream);
       audioChunks = [];
       mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
       mediaRecorder.onstop = async () => {
@@ -766,7 +781,7 @@
           const { data: urlData } = supabase.storage
             .from('chat-media')
             .getPublicUrl(`voice/${fileName}`);
-          sendMessage('voice', JSON.stringify({ url: urlData.publicUrl }), '🎤 Pesan suara');
+          sendMessage('voice', { url: urlData.publicUrl });
         }
       };
       mediaRecorder.start();
@@ -786,38 +801,67 @@
     voiceNoteBtn.textContent = '🎤';
   }
 
-  // ==================== CALL (PeerJS) ====================
-  async function initPeer() {
-    if (peer) peer.destroy();
-    const peerId = `pasangan-${currentUser.id.substring(0, 10)}-${Date.now().toString(36)}`;
-    peer = new Peer(peerId, { debug: 0 });
-
-    peer.on('open', (id) => {
-      console.log('Peer ID:', id);
-      // Broadcast peer ID via Supabase agar pasangan tahu
-      sendCallSignal('peer_ready', { peerId: id });
-    });
-
-    peer.on('call', (incomingCall) => {
-      if (currentCall) incomingCall.close();
-      else {
-        currentCall = incomingCall;
-        showCallUI(false);
-        incomingCall.answer(localStream);
-        setupCallHandlers(incomingCall);
+  // ==================== CALL ====================
+  function handleCallSignal(data) {
+    if (data.signal_type === 'incoming_call') {
+      isVideoCall = data.video;
+      if (isCallActive) {
+        sendCallSignal('busy', {});
+        return;
       }
-    });
-
-    peer.on('error', (err) => console.error('Peer error:', err));
-    return peer;
+      // Auto answer
+      answerCall(data.peerId);
+    } else if (data.signal_type === 'call_ended') {
+      hideCallUI();
+    } else if (data.signal_type === 'busy') {
+      alert('Pasangan sedang sibuk');
+      hideCallUI();
+    }
   }
 
   async function startCall(video = true) {
     if (isCallActive) return;
     isVideoCall = video;
+    
     try {
       localStream = await navigator.mediaDevices.getUserMedia({
         video: video,
+        audio: true
+      });
+    } catch (e) {
+      alert('Tidak bisa akses kamera/mikrofon: ' + e.message);
+      return;
+    }
+
+    // Init PeerJS
+    if (peer) peer.destroy();
+    const peerId = `pasangan-${currentUser.id.substring(0, 8)}-${Date.now().toString(36)}`;
+    peer = new Peer(peerId);
+
+    peer.on('open', (id) => {
+      console.log('Peer siap:', id);
+      showCallUI(true);
+      // Kirim sinyal panggilan ke pasangan
+      sendCallSignal('incoming_call', { video: video, peerId: id });
+    });
+
+    peer.on('call', (incomingCall) => {
+      currentCall = incomingCall;
+      incomingCall.answer(localStream);
+      setupCallStream(incomingCall);
+    });
+
+    peer.on('error', (err) => {
+      console.error('Peer error:', err);
+      alert('Error koneksi: ' + err.type);
+      hideCallUI();
+    });
+  }
+
+  async function answerCall(remotePeerId) {
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({
+        video: isVideoCall,
         audio: true
       });
     } catch (e) {
@@ -825,16 +869,30 @@
       return;
     }
 
-    await initPeer();
-    showCallUI(true);
-    
-    // Tunggu sebentar lalu broadcast sinyal panggilan
-    setTimeout(() => {
-      sendCallSignal('incoming_call', { 
-        video: video,
-        peerId: peer.id 
-      });
-    }, 1500);
+    if (peer) peer.destroy();
+    const peerId = `pasangan-${currentUser.id.substring(0, 8)}-${Date.now().toString(36)}`;
+    peer = new Peer(peerId);
+
+    peer.on('open', () => {
+      showCallUI(false);
+      const call = peer.call(remotePeerId, localStream);
+      currentCall = call;
+      setupCallStream(call);
+    });
+
+    peer.on('error', (err) => {
+      console.error('Peer error:', err);
+      hideCallUI();
+    });
+  }
+
+  function setupCallStream(call) {
+    call.on('stream', (remoteStream) => {
+      remoteVideo.srcObject = remoteStream;
+      callStatus.textContent = '💞 Terhubung';
+    });
+    call.on('close', hideCallUI);
+    call.on('error', hideCallUI);
   }
 
   function showCallUI(isCaller) {
@@ -842,7 +900,7 @@
     isCallActive = true;
     localVideo.srcObject = localStream;
     localVideoWrapper.classList.remove('hidden');
-    callStatus.textContent = isCaller ? '📞 Memanggil pasangan...' : '📲 Menerima panggilan...';
+    callStatus.textContent = isCaller ? '📞 Memanggil...' : '📲 Menerima panggilan...';
   }
 
   function hideCallUI() {
@@ -863,36 +921,6 @@
       peer.destroy();
       peer = null;
     }
-    sendCallSignal('call_ended', {});
-  }
-
-  function setupCallHandlers(call) {
-    call.on('stream', (remoteStream) => {
-      remoteVideo.srcObject = remoteStream;
-      callStatus.textContent = '💞 Terhubung';
-    });
-    call.on('close', () => {
-      hideCallUI();
-    });
-    call.on('error', () => {
-      hideCallUI();
-    });
-  }
-
-  async function answerIncomingCall(remotePeerId) {
-    try {
-      localStream = await navigator.mediaDevices.getUserMedia({
-        video: isVideoCall,
-        audio: true
-      });
-    } catch (e) { return; }
-    
-    await initPeer();
-    showCallUI(false);
-    
-    const call = peer.call(remotePeerId, localStream);
-    currentCall = call;
-    setupCallHandlers(call);
   }
 
   function sendCallSignal(type, data) {
@@ -909,52 +937,14 @@
     });
   }
 
-  // Subscribe call signals
-  function subscribeCallSignals() {
-    supabase
-      .channel('call-signals-' + roomId)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: `room_id=eq.${roomId}`
-      }, async (payload) => {
-        const msg = payload.new;
-        if (msg.user_id === currentUser?.id) return;
-        if (msg.type !== 'call_signal') return;
-        
-        const data = JSON.parse(msg.content);
-        
-        if (data.signal_type === 'peer_ready' && !peer && isCallActive) {
-          // Partner peer siap, lakukan panggilan
-          if (currentCall) return;
-          const call = peer.call(data.peerId, localStream);
-          currentCall = call;
-          setupCallHandlers(call);
-        }
-        
-        if (data.signal_type === 'incoming_call') {
-          isVideoCall = data.video;
-          if (isCallActive) {
-            sendCallSignal('busy', {});
-            return;
-          }
-          // Auto-answer atau beri notifikasi? Untuk simple: langsung jawab
-          await answerIncomingCall(data.peerId);
-        }
-        
-        if (data.signal_type === 'call_ended') {
-          hideCallUI();
-        }
-      })
-      .subscribe();
-  }
-
   // ==================== BUTTON CALL ====================
   voiceCallBtn.addEventListener('click', () => startCall(false));
   videoCallBtn.addEventListener('click', () => startCall(true));
-  endCallBtn.addEventListener('click', hideCallUI);
-  
+  endCallBtn.addEventListener('click', () => {
+    sendCallSignal('call_ended', {});
+    hideCallUI();
+  });
+
   toggleMicBtn.addEventListener('click', () => {
     if (localStream) {
       const audio = localStream.getAudioTracks()[0];
@@ -965,29 +955,21 @@
     }
   });
 
-  toggleSpeakerBtn.addEventListener('click', () => {
-    // Speaker toggle (browser default, tidak bisa di-switch paksa)
-    alert('Gunakan kontrol volume perangkat Anda');
-  });
-
   // ==================== CLEANUP ====================
   async function cleanupAll() {
     hideCallUI();
-    if (messagesSubscription) {
-      supabase.removeChannel(messagesSubscription);
-      messagesSubscription = null;
-    }
-    if (presenceChannel) {
-      supabase.removeChannel(presenceChannel);
-      presenceChannel = null;
+    if (realtimeChannel) {
+      await supabase.removeChannel(realtimeChannel);
+      realtimeChannel = null;
     }
     messagesContainer.innerHTML = '';
     partnerUser = null;
+    partnerNameEl.textContent = 'Pasangan';
+    partnerStatusEl.textContent = '⚪ offline';
   }
 
   // ==================== INIT ====================
   checkSession();
-  subscribeCallSignals();
 })();
 </script>
 </body>
