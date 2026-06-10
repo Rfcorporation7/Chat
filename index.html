@@ -386,8 +386,8 @@
   <div class="chat-screen hidden" id="chatScreen">
     <div class="chat-header">
       <div class="user-info">
-        <img class="avatar-img" id="myAvatar" src="" style="display:none;" title="Klik untuk ganti foto profil">
-        <div class="avatar-img" id="myAvatarPlaceholder" style="display:flex;align-items:center;justify-content:center;font-size:1.2rem;cursor:pointer;" title="Klik untuk ganti foto profil"><i class="fas fa-user-circle"></i></div>
+        <img class="avatar-img" id="partnerAvatar" src="" style="display:none;" alt="Partner">
+        <div class="avatar-img" id="partnerAvatarPlaceholder" style="display:flex;align-items:center;justify-content:center;font-size:1.2rem;cursor:pointer;"><i class="fas fa-user-circle"></i></div>
         <div>
           <div class="name" id="partnerName">Pasangan</div>
           <div class="status" id="partnerStatus"><i class="fas fa-circle" style="font-size:0.35rem;color:#94a3b8;"></i> offline</div>
@@ -518,10 +518,30 @@
     await supabase.from('user_profiles').upsert({user_id:user.id,avatar_url:data.publicUrl,updated_at:new Date().toISOString()});
     updateMyAvatar();broadcastProfile();$('photoModal').classList.add('hidden');showToast('✅ Foto profil diperbarui');
   };
+  
   function updateMyAvatar(){
-    if(userProfile?.avatar_url){$('myAvatar').src=userProfile.avatar_url;$('myAvatar').style.display='block';$('myAvatarPlaceholder').style.display='none';}
+    if(userProfile?.avatar_url){
+      $('partnerAvatar').src=userProfile.avatar_url;
+      $('partnerAvatar').style.display='block';
+      $('partnerAvatarPlaceholder').style.display='none';
+    } else {
+      $('partnerAvatar').style.display='none';
+      $('partnerAvatarPlaceholder').style.display='flex';
+    }
   }
-  $('myAvatar').onclick=openPhotoModal;$('myAvatarPlaceholder').onclick=openPhotoModal;
+  
+  function updatePartnerAvatar(){
+    if(partnerProfile?.avatar_url){
+      $('partnerAvatar').src=partnerProfile.avatar_url;
+      $('partnerAvatar').style.display='block';
+      $('partnerAvatarPlaceholder').style.display='none';
+    } else {
+      $('partnerAvatar').style.display='none';
+      $('partnerAvatarPlaceholder').style.display='flex';
+    }
+  }
+  
+  $('partnerAvatar').onclick=openPhotoModal;$('partnerAvatarPlaceholder').onclick=openPhotoModal;
 
   $('previewCancel').onclick=()=>{
     $('previewOverlay').classList.add('hidden');$('previewImg').style.display='none';$('previewVideo').style.display='none';
@@ -641,32 +661,125 @@
 
   async function loadUserProfile(){
     const{data}=await supabase.from('user_profiles').select('*').eq('user_id',user.id).single();
-    if(data){userProfile=data;updateMyAvatar();}
-    else userProfile={user_id:user.id,full_name:user.email?.split('@')[0]||'User',avatar_url:null,email:user.email};
+    if(data){userProfile=data;}
+    else {
+      // Jika belum ada profil, buat dari data user
+      userProfile={
+        user_id: user.id,
+        full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+        avatar_url: user.user_metadata?.avatar_url || null,
+        email: user.email
+      };
+      // Simpan profil ke database
+      await supabase.from('user_profiles').upsert({
+        user_id: user.id,
+        full_name: userProfile.full_name,
+        avatar_url: userProfile.avatar_url,
+        email: user.email,
+        updated_at: new Date().toISOString()
+      });
+    }
+    updateMyAvatar();
   }
+  
   async function loadPartnerProfile(pid){
     const{data}=await supabase.from('user_profiles').select('*').eq('user_id',pid).single();
-    if(data){partnerProfile=data;updatePartnerUI();}
+    if(data){
+      partnerProfile=data;
+      updatePartnerUI();
+    } else {
+      // Coba dapatkan dari user metadata
+      const{data: userData} = await supabase.auth.admin?.getUserById(pid);
+      if(userData?.user?.user_metadata?.full_name) {
+        partnerProfile = {
+          user_id: pid,
+          full_name: userData.user.user_metadata.full_name,
+          avatar_url: userData.user.user_metadata.avatar_url || null,
+          email: userData.user.email
+        };
+      } else {
+        // Fallback ke email partner
+        partnerProfile = {
+          user_id: pid,
+          full_name: 'Pasangan',
+          avatar_url: null,
+          email: null
+        };
+      }
+      updatePartnerUI();
+    }
   }
+  
   function updatePartnerUI(){
-    if(partnerProfile){$('partnerName').textContent=partnerProfile.full_name||partnerProfile.email?.split('@')[0]||'Pasangan';$('partnerStatus').innerHTML='<i class="fas fa-circle" style="font-size:0.35rem;color:#10b981;"></i> online';}
+    if(partnerProfile){
+      // Tampilkan nama partner sesuai yang terdaftar di HP partner
+      const partnerName = partnerProfile.full_name || partnerProfile.email?.split('@')[0] || 'Pasangan';
+      $('partnerName').textContent = partnerName;
+      $('partnerStatus').innerHTML='<i class="fas fa-circle" style="font-size:0.35rem;color:#10b981;"></i> online';
+      updatePartnerAvatar();
+    }
   }
+  
+  function getMyDisplayName() {
+    // Nama yang akan muncul di HP pasangan adalah nama yang kita daftarkan
+    return userProfile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
+  }
+  
+  function getPartnerDisplayName() {
+    // Nama partner yang muncul di HP kita adalah nama yang partner daftarkan
+    if(partnerProfile?.full_name) return partnerProfile.full_name;
+    return partnerProfile?.email?.split('@')[0] || partner?.email?.split('@')[0] || 'Pasangan';
+  }
+  
   function subscribeProfileUpdates(){
     if(profileChannel)supabase.removeChannel(profileChannel);
-    profileChannel=supabase.channel('profiles').on('postgres_changes',{event:'*',schema:'public',table:'user_profiles'},(payload)=>{
-      const prof=payload.new;if(prof.user_id!==user?.id){partnerProfile=prof;partner={id:prof.user_id,email:prof.email};updatePartnerUI();}
+    profileChannel=supabase.channel('profiles')
+    .on('postgres_changes',{event:'*',schema:'public',table:'user_profiles'},(payload)=>{
+      const prof=payload.new;
+      // Update profil partner jika ada perubahan
+      if(partner && prof.user_id === partner.id) {
+        partnerProfile = prof;
+        updatePartnerUI();
+      }
+      // Jika ini profil kita sendiri (update dari device lain), refresh juga
+      if(user && prof.user_id === user.id) {
+        userProfile = prof;
+        updateMyAvatar();
+      }
     }).subscribe();
   }
+  
   function broadcastProfile(){
     if(!userProfile)return;
-    supabase.from('user_profiles').upsert({user_id:user.id,full_name:userProfile.full_name,avatar_url:userProfile.avatar_url,email:user.email,updated_at:new Date().toISOString()}).then(()=>{});
+    supabase.from('user_profiles').upsert({
+      user_id: user.id,
+      full_name: userProfile.full_name,
+      avatar_url: userProfile.avatar_url,
+      email: user.email,
+      updated_at: new Date().toISOString()
+    }).then(()=>{});
   }
   function showChat(){$('loginScreen').classList.add('hidden');$('signupScreen').classList.add('hidden');$('chatScreen').classList.remove('hidden');}
 
   // ========== HISTORY ==========
   async function loadHistory(){
     const{data}=await supabase.from('messages').select('*').eq('room_id',ROOM).order('created_at',{ascending:true}).limit(200);
-    if(data){$('messagesArea').innerHTML='';seenMsgIds.clear();data.forEach(msg=>{seenMsgIds.add(msg.id);if(msg.type==='call_signal')return;let d;try{d=JSON.parse(msg.content)}catch(e){d={text:msg.content}};addMsg(msg.type,d,msg.user_id,msg.id,msg.edited);if(msg.user_id!==user?.id&&!partner){partner={id:msg.user_id,email:msg.sender_email};loadPartnerProfile(msg.user_id);}});}
+    if(data){
+      $('messagesArea').innerHTML='';
+      seenMsgIds.clear();
+      data.forEach(msg=>{
+        seenMsgIds.add(msg.id);
+        if(msg.type==='call_signal')return;
+        let d;
+        try{d=JSON.parse(msg.content)}catch(e){d={text:msg.content}};
+        addMsg(msg.type,d,msg.user_id,msg.id,msg.edited);
+        // Update partner info dari pesan
+        if(msg.user_id!==user?.id && !partner){
+          partner={id:msg.user_id,email:msg.sender_email};
+          loadPartnerProfile(msg.user_id);
+        }
+      });
+    }
   }
 
   // ========== REALTIME ==========
@@ -674,119 +787,394 @@
     if(channel)supabase.removeChannel(channel);
     channel=supabase.channel('room-'+ROOM)
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:`room_id=eq.${ROOM}`},(payload)=>{
-        const msg=payload.new;if(seenMsgIds.has(msg.id))return;if(msg.user_id===user?.id&&msg.type!=='call_signal')return;
-        if(msg.user_id!==user?.id){if(!partner||partner.id!==msg.user_id){partner={id:msg.user_id,email:msg.sender_email};loadPartnerProfile(msg.user_id);}updatePartnerUI();}
-        let d;try{d=JSON.parse(msg.content)}catch(e){d={text:msg.content}};
-        if(msg.type==='call_signal'){if(msg.user_id!==user?.id)handleSignal(d,msg.sender_email);return;}
+        const msg=payload.new;
+        if(seenMsgIds.has(msg.id))return;
+        if(msg.user_id===user?.id && msg.type!=='call_signal')return;
+        
+        if(msg.user_id!==user?.id){
+          if(!partner || partner.id !== msg.user_id){
+            partner={id:msg.user_id,email:msg.sender_email};
+            loadPartnerProfile(msg.user_id);
+          }
+          updatePartnerUI();
+        }
+        
+        let d;
+        try{d=JSON.parse(msg.content)}catch(e){d={text:msg.content}};
+        
+        if(msg.type==='call_signal'){
+          if(msg.user_id!==user?.id)handleSignal(d, msg.sender_email);
+          return;
+        }
+        
         addMsg(msg.type,d,msg.user_id,msg.id,msg.edited);
       })
       .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages',filter:`room_id=eq.${ROOM}`},(payload)=>{
-        const msg=payload.new;const div=document.querySelector(`[data-msg-id="${msg.id}"]`);
-        if(div){let d;try{d=JSON.parse(msg.content)}catch(e){d={text:msg.content}};for(let i=0;i<div.childNodes.length;i++){if(div.childNodes[i].nodeType===3&&div.childNodes[i].textContent.trim()){div.childNodes[i].textContent=d.text;break;}}if(!div.querySelector('.edited-tag')){const tag=document.createElement('span');tag.className='edited-tag';tag.textContent='(diedit)';div.insertBefore(tag,div.querySelector('.time'));}}
+        const msg=payload.new;
+        const div=document.querySelector(`[data-msg-id="${msg.id}"]`);
+        if(div){
+          let d;
+          try{d=JSON.parse(msg.content)}catch(e){d={text:msg.content}};
+          for(let i=0;i<div.childNodes.length;i++){
+            if(div.childNodes[i].nodeType===3 && div.childNodes[i].textContent.trim()){
+              div.childNodes[i].textContent = d.text;
+              break;
+            }
+          }
+          if(!div.querySelector('.edited-tag')){
+            const tag=document.createElement('span');
+            tag.className='edited-tag';
+            tag.textContent='(diedit)';
+            div.insertBefore(tag, div.querySelector('.time'));
+          }
+        }
       })
       .on('postgres_changes',{event:'DELETE',schema:'public',table:'messages',filter:`room_id=eq.${ROOM}`},(payload)=>{
-        const msg=payload.old;const div=document.querySelector(`[data-msg-id="${msg.id}"]`);
-        if(div){div.style.opacity='0';div.style.transition='0.3s';setTimeout(()=>div.remove(),300);}seenMsgIds.delete(msg.id);
+        const msg=payload.old;
+        const div=document.querySelector(`[data-msg-id="${msg.id}"]`);
+        if(div){
+          div.style.opacity='0';
+          div.style.transition='0.3s';
+          setTimeout(()=>div.remove(),300);
+        }
+        seenMsgIds.delete(msg.id);
       }).subscribe();
   }
 
   // ========== SEND ==========
   async function sendMsg(type,content){
     if(!user)return;
-    const{data,error}=await supabase.from('messages').insert({room_id:ROOM,user_id:user.id,sender_email:user.email,type,content:JSON.stringify(content),created_at:new Date().toISOString()}).select('id').single();
-    if(!error&&data)addMsg(type,content,user.id,data.id);
+    const{data,error}=await supabase.from('messages').insert({
+      room_id:ROOM,
+      user_id:user.id,
+      sender_email:user.email,
+      type,
+      content:JSON.stringify(content),
+      created_at:new Date().toISOString()
+    }).select('id').single();
+    if(!error && data)addMsg(type,content,user.id,data.id);
   }
-  $('sendBtn').onclick=()=>{const t=$('messageInput').value.trim();if(!t)return;sendMsg('text',{text:t});$('messageInput').value='';$('messageInput').focus();};
-  $('messageInput').onkeypress=(e)=>{if(e.key==='Enter')$('sendBtn').click();};
+  
+  $('sendBtn').onclick=()=>{
+    const t=$('messageInput').value.trim();
+    if(!t)return;
+    sendMsg('text',{text:t});
+    $('messageInput').value='';
+    $('messageInput').focus();
+  };
+  
+  $('messageInput').onkeypress=(e)=>{
+    if(e.key==='Enter')$('sendBtn').click();
+  };
+  
   $('attachBtn').onclick=()=>$('fileInput').click();
-  $('fileInput').onchange=(e)=>{const f=e.target.files[0];if(!f)return;showPreview(f);};
+  $('fileInput').onchange=(e)=>{
+    const f=e.target.files[0];
+    if(!f)return;
+    showPreview(f);
+  };
+  
   $('cameraBtn').onclick=()=>$('cameraInput').click();
-  $('cameraInput').onchange=(e)=>{const f=e.target.files[0];if(!f)return;showPreview(f);};
+  $('cameraInput').onchange=(e)=>{
+    const f=e.target.files[0];
+    if(!f)return;
+    showPreview(f);
+  };
 
-  $('voiceBtn').onmousedown=startRec;$('voiceBtn').onmouseup=stopRec;$('voiceBtn').onmouseleave=stopRec;
-  $('voiceBtn').ontouchstart=(e)=>{e.preventDefault();startRec();};$('voiceBtn').ontouchend=stopRec;
+  $('voiceBtn').onmousedown=startRec;
+  $('voiceBtn').onmouseup=stopRec;
+  $('voiceBtn').onmouseleave=stopRec;
+  $('voiceBtn').ontouchstart=(e)=>{e.preventDefault();startRec();};
+  $('voiceBtn').ontouchend=stopRec;
+  
   async function startRec(){
     if(isRecording)return;
-    try{const s=await navigator.mediaDevices.getUserMedia({audio:true});mediaRecorder=new MediaRecorder(s);audioChunks=[];mediaRecorder.ondataavailable=e=>audioChunks.push(e.data);mediaRecorder.onstop=async()=>{s.getTracks().forEach(t=>t.stop());const blob=new Blob(audioChunks,{type:'audio/webm'});const name=`voice-${Date.now()}.webm`;const{error}=await supabase.storage.from('chat-media').upload(`voice/${name}`,blob);if(!error){const{data}=supabase.storage.from('chat-media').getPublicUrl(`voice/${name}`);sendMsg('voice',{url:data.publicUrl});}};mediaRecorder.start();isRecording=true;$('voiceBtn').classList.add('recording');}
-    catch(e){showToast('Mikrofon tidak bisa diakses');}
+    try{
+      const s=await navigator.mediaDevices.getUserMedia({audio:true});
+      mediaRecorder=new MediaRecorder(s);
+      audioChunks=[];
+      mediaRecorder.ondataavailable=e=>audioChunks.push(e.data);
+      mediaRecorder.onstop=async()=>{
+        s.getTracks().forEach(t=>t.stop());
+        const blob=new Blob(audioChunks,{type:'audio/webm'});
+        const name=`voice-${Date.now()}.webm`;
+        const{error}=await supabase.storage.from('chat-media').upload(`voice/${name}`,blob);
+        if(!error){
+          const{data}=supabase.storage.from('chat-media').getPublicUrl(`voice/${name}`);
+          sendMsg('voice',{url:data.publicUrl});
+        }
+      };
+      mediaRecorder.start();
+      isRecording=true;
+      $('voiceBtn').classList.add('recording');
+    } catch(e){
+      showToast('Mikrofon tidak bisa diakses');
+    }
   }
-  function stopRec(){if(!isRecording||!mediaRecorder)return;mediaRecorder.stop();isRecording=false;$('voiceBtn').classList.remove('recording');}
+  
+  function stopRec(){
+    if(!isRecording || !mediaRecorder)return;
+    mediaRecorder.stop();
+    isRecording=false;
+    $('voiceBtn').classList.remove('recording');
+  }
 
   // ========== CALL ==========
-  function handleSignal(data,senderEmail){
-    const callerName=partnerProfile?.full_name||senderEmail?.split('@')[0]||'Pasangan';
+  function handleSignal(data, senderEmail){
+    const callerName = getPartnerDisplayName();
+    
     if(data.signal==='incoming_call'){
-      pendingSignal=data;isVideo=data.video;$('incomingCaller').textContent=callerName;$('incomingType').textContent=data.video?'Panggilan Video':'Panggilan Suara';$('incomingOverlay').classList.remove('hidden');
-      clearTimeout(callTimeout);callTimeout=setTimeout(()=>{if($('incomingOverlay').classList.contains('hidden'))return;$('incomingOverlay').classList.add('hidden');sendSignal('call_timeout',{});showCallResult('📵 Tidak terjawab');pendingSignal=null;},30000);
-    }else if(data.signal==='call_ended'){endCall();showCallResult('📴 Berakhir');}
-    else if(data.signal==='call_rejected'){endCall();$('incomingOverlay').classList.add('hidden');clearTimeout(callTimeout);showCallResult('🚫 Ditolak');}
-    else if(data.signal==='call_timeout'){endCall();showCallResult('📵 Tidak terjawab');}
-    else if(data.signal==='call_accepted'){if(peer&&localStream){const call=peer.call(data.peerId,localStream);currentCall=call;setupCallStream(call);}}
+      pendingSignal=data;
+      isVideo=data.video;
+      $('incomingCaller').textContent = callerName;
+      $('incomingType').textContent = data.video ? 'Panggilan Video' : 'Panggilan Suara';
+      $('incomingOverlay').classList.remove('hidden');
+      
+      clearTimeout(callTimeout);
+      callTimeout=setTimeout(()=>{
+        if($('incomingOverlay').classList.contains('hidden'))return;
+        $('incomingOverlay').classList.add('hidden');
+        sendSignal('call_timeout',{});
+        showCallResult('📵 Tidak terjawab');
+        pendingSignal=null;
+      },30000);
+    } else if(data.signal==='call_ended'){
+      endCall();
+      showCallResult('📴 Berakhir');
+    } else if(data.signal==='call_rejected'){
+      endCall();
+      $('incomingOverlay').classList.add('hidden');
+      clearTimeout(callTimeout);
+      showCallResult('🚫 Ditolak');
+    } else if(data.signal==='call_timeout'){
+      endCall();
+      showCallResult('📵 Tidak terjawab');
+    } else if(data.signal==='call_accepted'){
+      if(peer && localStream){
+        const call=peer.call(data.peerId, localStream);
+        currentCall=call;
+        setupCallStream(call);
+      }
+    }
   }
 
   $('acceptBtn').onclick=async()=>{
-    $('incomingOverlay').classList.add('hidden');clearTimeout(callTimeout);if(!pendingSignal)return;
-    try{localStream=await navigator.mediaDevices.getUserMedia({video:isVideo,audio:true});}
-    catch(e){showToast('Kamera/mikrofon tidak bisa diakses');sendSignal('call_rejected',{});return;}
-    const id=`call-${user.id.slice(0,8)}-${Date.now().toString(36)}`;if(peer)peer.destroy();peer=new Peer(id);
-    peer.on('open',()=>{showCallUI(false);sendSignal('call_accepted',{peerId:id});setTimeout(()=>{const call=peer.call(pendingSignal.peerId,localStream);currentCall=call;setupCallStream(call);},500);});
-    peer.on('call',(inc)=>{currentCall=inc;inc.answer(localStream);setupCallStream(inc);});
-    peer.on('error',()=>endCall());pendingSignal=null;
+    $('incomingOverlay').classList.add('hidden');
+    clearTimeout(callTimeout);
+    if(!pendingSignal)return;
+    
+    try{
+      localStream = await navigator.mediaDevices.getUserMedia({
+        video: isVideo,
+        audio: true
+      });
+    } catch(e) {
+      showToast('Kamera/mikrofon tidak bisa diakses');
+      sendSignal('call_rejected',{});
+      return;
+    }
+    
+    const id=`call-${user.id.slice(0,8)}-${Date.now().toString(36)}`;
+    if(peer)peer.destroy();
+    peer=new Peer(id);
+    
+    peer.on('open',()=>{
+      showCallUI(false);
+      sendSignal('call_accepted',{peerId:id});
+      setTimeout(()=>{
+        const call=peer.call(pendingSignal.peerId, localStream);
+        currentCall=call;
+        setupCallStream(call);
+      },500);
+    });
+    
+    peer.on('call',(inc)=>{
+      currentCall=inc;
+      inc.answer(localStream);
+      setupCallStream(inc);
+    });
+    
+    peer.on('error',()=>endCall());
+    pendingSignal=null;
   };
-  $('rejectBtn').onclick=()=>{$('incomingOverlay').classList.add('hidden');clearTimeout(callTimeout);sendSignal('call_rejected',{});showCallResult('🚫 Ditolak');pendingSignal=null;};
+  
+  $('rejectBtn').onclick=()=>{
+    $('incomingOverlay').classList.add('hidden');
+    clearTimeout(callTimeout);
+    sendSignal('call_rejected',{});
+    showCallResult('🚫 Ditolak');
+    pendingSignal=null;
+  };
 
   async function startCall(video){
-    if(isCallActive)return;isVideo=video;
-    try{localStream=await navigator.mediaDevices.getUserMedia({video,audio:true});}
-    catch(e){showToast('Kamera/mikrofon tidak bisa diakses');return;}
-    const id=`call-${user.id.slice(0,8)}-${Date.now().toString(36)}`;if(peer)peer.destroy();peer=new Peer(id);
-    peer.on('open',(myId)=>{showCallUI(true);sendSignal('incoming_call',{video,peerId:myId});});
-    peer.on('call',(inc)=>{currentCall=inc;inc.answer(localStream);setupCallStream(inc);});
+    if(isCallActive)return;
+    isVideo=video;
+    
+    try{
+      localStream = await navigator.mediaDevices.getUserMedia({
+        video: video,
+        audio: true
+      });
+    } catch(e) {
+      showToast('Kamera/mikrofon tidak bisa diakses');
+      return;
+    }
+    
+    const id=`call-${user.id.slice(0,8)}-${Date.now().toString(36)}`;
+    if(peer)peer.destroy();
+    peer=new Peer(id);
+    
+    peer.on('open',(myId)=>{
+      showCallUI(true);
+      sendSignal('incoming_call',{video,peerId:myId});
+    });
+    
+    peer.on('call',(inc)=>{
+      currentCall=inc;
+      inc.answer(localStream);
+      setupCallStream(inc);
+    });
+    
     peer.on('error',()=>endCall());
   }
 
   function setupCallStream(call){
     call.on('stream',(remoteStream)=>{
-      if(isVideo){$('remoteVideo').srcObject=remoteStream;$('remoteVideo').classList.remove('hidden');$('callAvatar').classList.add('hidden');}
-      else{$('callAvatar').classList.remove('hidden');$('remoteVideo').classList.add('hidden');const a=new Audio();a.srcObject=remoteStream;a.play().catch(()=>{});}
+      if(isVideo){
+        // Tampilkan video remote
+        $('remoteVideo').srcObject = remoteStream;
+        $('remoteVideo').classList.remove('hidden');
+        $('callAvatar').classList.add('hidden');
+        
+        // Pastikan video lokal juga tetap terlihat
+        if(localStream) {
+          $('localVideo').srcObject = localStream;
+          $('localVideo').classList.remove('hidden');
+        }
+      } else {
+        $('callAvatar').classList.remove('hidden');
+        $('remoteVideo').classList.add('hidden');
+        const a=new Audio();
+        a.srcObject=remoteStream;
+        a.play().catch(()=>{});
+      }
       $('callStatus').textContent='💙 Terhubung';
     });
-    call.on('close',endCall);call.on('error',()=>endCall());
+    
+    call.on('close', endCall);
+    call.on('error', () => endCall());
   }
 
   function showCallUI(isCaller){
-    $('callOverlay').classList.remove('hidden');isCallActive=true;
-    if(isVideo){$('localVideo').srcObject=localStream;$('localVideo').classList.remove('hidden');$('callAvatar').classList.add('hidden');}
-    else{$('localVideo').classList.add('hidden');$('callAvatar').classList.remove('hidden');}
-    $('callStatus').textContent=isCaller?'📞 Memanggil...':'📲 Menerima...';
+    $('callOverlay').classList.remove('hidden');
+    isCallActive = true;
+    
+    if(isVideo && localStream){
+      // Tampilkan video lokal
+      $('localVideo').srcObject = localStream;
+      $('localVideo').classList.remove('hidden');
+      $('callAvatar').classList.add('hidden');
+      
+      // Remote video akan muncul saat stream diterima
+      $('remoteVideo').classList.add('hidden');
+    } else {
+      $('localVideo').classList.add('hidden');
+      $('remoteVideo').classList.add('hidden');
+      $('callAvatar').classList.remove('hidden');
+    }
+    
+    $('callStatus').textContent = isCaller ? '📞 Memanggil...' : '📲 Menerima...';
   }
 
   function endCall(){
-    $('callOverlay').classList.add('hidden');$('incomingOverlay').classList.add('hidden');isCallActive=false;clearTimeout(callTimeout);
-    if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null;}
-    $('localVideo').srcObject=null;$('remoteVideo').srcObject=null;
-    $('localVideo').classList.add('hidden');$('remoteVideo').classList.add('hidden');$('callAvatar').classList.add('hidden');
-    if(currentCall){currentCall.close();currentCall=null;}if(peer){peer.destroy();peer=null;}
+    $('callOverlay').classList.add('hidden');
+    $('incomingOverlay').classList.add('hidden');
+    isCallActive = false;
+    clearTimeout(callTimeout);
+    
+    if(localStream){
+      localStream.getTracks().forEach(t => t.stop());
+      localStream = null;
+    }
+    
+    $('localVideo').srcObject = null;
+    $('remoteVideo').srcObject = null;
+    $('localVideo').classList.add('hidden');
+    $('remoteVideo').classList.add('hidden');
+    $('callAvatar').classList.add('hidden');
+    
+    if(currentCall){
+      currentCall.close();
+      currentCall = null;
+    }
+    
+    if(peer){
+      peer.destroy();
+      peer = null;
+    }
   }
 
-  function sendSignal(signal,data){
+  function sendSignal(signal, data){
     if(!user)return;
-    supabase.from('messages').insert({room_id:ROOM,user_id:user.id,sender_email:user.email,type:'call_signal',content:JSON.stringify({signal,...data}),created_at:new Date().toISOString()}).then(()=>{});
+    supabase.from('messages').insert({
+      room_id: ROOM,
+      user_id: user.id,
+      sender_email: user.email,
+      type: 'call_signal',
+      content: JSON.stringify({signal, ...data}),
+      created_at: new Date().toISOString()
+    }).then(()=>{});
   }
 
   $('voiceCallBtn').onclick=()=>startCall(false);
   $('videoCallBtn').onclick=()=>startCall(true);
-  $('endCallBtn').onclick=()=>{sendSignal('call_ended',{});endCall();showCallResult('📴 Berakhir');};
-  $('toggleMicBtn').onclick=()=>{if(localStream){const a=localStream.getAudioTracks()[0];if(a){a.enabled=!a.enabled;$('toggleMicBtn').innerHTML=a.enabled?'<i class="fas fa-microphone"></i>':'<i class="fas fa-microphone-slash"></i>';}}};
-  $('toggleSpeakerBtn').onclick=()=>{isSpeakerOn=!isSpeakerOn;$('toggleSpeakerBtn').innerHTML=isSpeakerOn?'<i class="fas fa-volume-up"></i>':'<i class="fas fa-volume-off"></i>';showToast(isSpeakerOn?'Speaker aktif':'Speaker nonaktif',1500);};
+  
+  $('endCallBtn').onclick=()=>{
+    sendSignal('call_ended',{});
+    endCall();
+    showCallResult('📴 Berakhir');
+  };
+  
+  $('toggleMicBtn').onclick=()=>{
+    if(localStream){
+      const a = localStream.getAudioTracks()[0];
+      if(a){
+        a.enabled = !a.enabled;
+        $('toggleMicBtn').innerHTML = a.enabled ? '<i class="fas fa-microphone"></i>' : '<i class="fas fa-microphone-slash"></i>';
+      }
+    }
+  };
+  
+  $('toggleSpeakerBtn').onclick=()=>{
+    isSpeakerOn = !isSpeakerOn;
+    $('toggleSpeakerBtn').innerHTML = isSpeakerOn ? '<i class="fas fa-volume-up"></i>' : '<i class="fas fa-volume-off"></i>';
+    showToast(isSpeakerOn ? 'Speaker aktif' : 'Speaker nonaktif', 1500);
+  };
 
   async function cleanup(){
-    endCall();$('incomingOverlay').classList.add('hidden');pendingSignal=null;clearTimeout(callTimeout);
-    if(channel){await supabase.removeChannel(channel);channel=null;}
-    if(profileChannel){await supabase.removeChannel(profileChannel);profileChannel=null;}
-    $('messagesArea').innerHTML='';seenMsgIds.clear();partner=null;partnerProfile=null;
-    $('partnerName').textContent='Pasangan';$('partnerStatus').innerHTML='<i class="fas fa-circle" style="font-size:0.35rem;color:#94a3b8;"></i> offline';
-    $('myAvatar').style.display='none';$('myAvatarPlaceholder').style.display='flex';
+    endCall();
+    $('incomingOverlay').classList.add('hidden');
+    pendingSignal = null;
+    clearTimeout(callTimeout);
+    
+    if(channel){
+      await supabase.removeChannel(channel);
+      channel = null;
+    }
+    
+    if(profileChannel){
+      await supabase.removeChannel(profileChannel);
+      profileChannel = null;
+    }
+    
+    $('messagesArea').innerHTML='';
+    seenMsgIds.clear();
+    partner = null;
+    partnerProfile = null;
+    $('partnerName').textContent = 'Pasangan';
+    $('partnerStatus').innerHTML = '<i class="fas fa-circle" style="font-size:0.35rem;color:#94a3b8;"></i> offline';
+    $('partnerAvatar').style.display = 'none';
+    $('partnerAvatarPlaceholder').style.display = 'flex';
   }
 
   checkSession();
